@@ -54,7 +54,8 @@ The protocol format for the receiver is even simpler. From the simplifications, 
 ## 1.4 Reliability 
 Next, we consider the meat of part 2 of the project: reliability. Reliability can be achieved by **acknowledgments** and **retransmissions**.
 
-Let's first consider the design choice for **acknowledgments**. The naive choice would be to implement a stop-and-wait algorithm as shown below.
+Let's first consider the design choice for **acknowledgments**. Each acknowledgment indicates the successful delivery of a certain segment.  
+The naive choice would be to implement a stop-and-wait algorithm as shown below.
 
 ![stop and wait](img/stop_and_wait.PNG)
 
@@ -66,7 +67,8 @@ The above example shows a sliding window algorithm with window size 3 for the se
 
 Like TCP, we will use cumulative ACKs to keep track of how many in-order segments that receiver successfully received up to and including the ACK number.
 
-Now, let's consider **retransmissions**. When segments get lost or discarded (due to corruption), we might have the following scenario:
+Finally, we are ready for **retransmissions**. Retransmission is the heart of reliability since "A transport protocol is reliable if and only if it resends all dropped or corrupted packets".  
+When segments get lost or discarded (due to corruption), we might have the following scenario:
 
 ![Duplicate ACKs](img/dup_acks.PNG)
 
@@ -85,12 +87,12 @@ The above cases are not exhaustive, but we get the idea.
 - Protocol format: sequence number + data.
 - The sender keeps a list of pending segments. We will call the list the sender window.
 - The sender transmits the next segment k when the size of the sender window is smaller than the maximum window size. Then, the sender place the transmitted segment in the sender window.
-- When the sender receives an ACK for segment k, the sender removes all segments that have sequence number less than equal to k from the sender window (cumulative ACK).
+- When the sender receives an ACK for segment k, the sender removes all segments that have sequence number less than equal to k from the sender window (cumulative ACKs).
 - Periodically check and retransmit the expired segment inside the sender window (Not received ACK for that segment after a certain time).
 
 ### Receiver
 - Protocol format: ACK number.
-- When the receiver receives a segment, send back ACK with a corresponding sequence number.
+- When the receiver receives a segment, send back ACK with a sequence number that the receiver has successfully received in-order (cumulative ACKs). 
 - The receiver keeps track of a list of received segments. If a duplicate segment arrives, ignore it. We will call the list the receiver window.
 - The receiver also keeps track of the next expected segment. When the next expected segment arrives, the receiver print all the in-order segments up to the next hole (missing segment) of the sequence inside the receiver window. 
 
