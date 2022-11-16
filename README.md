@@ -1,5 +1,5 @@
 # CS 4254 project 3: TCP Blacksburg
-Last updated: November 13, 2022  
+Last updated: November 15, 2022  
 Team members: Bug Lee, Maria Pereira  
 
 **Table of Contents:**
@@ -84,17 +84,17 @@ The above cases are not exhaustive, but we get the idea.
 
 ## Summary
 ### Sender
-- Protocol format: sequence number + data.
-- The sender keeps a list of pending segments. We will call the list the sender window.
-- The sender transmits the next segment k when the size of the sender window is smaller than the maximum window size. Then, the sender place the transmitted segment in the sender window.
-- When the sender receives an ACK for segment k, the sender removes all segments that have sequence number less than equal to k from the sender window (cumulative ACKs).
-- Periodically check and retransmit the expired segment inside the sender window (Not received ACK for that segment after a certain time).
+- [x] Protocol format: sequence number + data.
+- [x] The sender keeps a list of pending segments. We will call the list the sender window.
+- [x] The sender transmits the next segment k when the size of the sender window is smaller than the maximum window size. Then, the sender place the transmitted segment in the sender window.
+- [x] When the sender receives an ACK for segment k, the sender removes all segments that have sequence number less than equal to k from the sender window (cumulative ACKs).
+- [ ] Periodically check and retransmit the expired segment inside the sender window (Not received ACK for that segment after a certain time).
 
 ### Receiver
-- Protocol format: ACK number.
-- When the receiver receives a segment, send back ACK with a sequence number that the receiver has successfully received in-order (cumulative ACKs). 
-- The receiver keeps track of a list of received segments. If a duplicate segment arrives, ignore it. We will call the list the receiver window.
-- The receiver also keeps track of the next expected segment. When the next expected segment arrives, the receiver print all the in-order segments up to the next hole (missing segment) of the sequence inside the receiver window. 
+- [x] Protocol format: ACK number.
+- [x] When the receiver receives a segment, send back ACK with a sequence number that the receiver has successfully received in-order (cumulative ACKs). 
+- [x] The receiver keeps track of a list of received segments. If a duplicate segment arrives, ignore it. We will call the list the receiver window.
+- [x] The receiver also keeps track of the next expected segment. When the next expected segment arrives, the receiver print all the in-order segments up to the next hole (missing segment) of the sequence inside the receiver window. 
 
 
 ## Test Results
@@ -118,29 +118,35 @@ Basic (friendly network) tests
 
   Large 0.5 Mb/s 10 ms latency                              [ PASS ]
 
-  Large 0.1 Mb/s 500 ms latency                             [ FAIL ]
+  Large 0.1 Mb/s 500 ms latency                             [ PASS ]
 
 
 
 Advanced tests
 
-  Small 1Mb/s, 10 ms, 100% duplicate                        [ FAIL ]
+  Small 1Mb/s, 10 ms, 100% duplicate                        [ PASS ]
 
   Medium 1Mb/s, 10 ms, 50% reorder 10% drop                 [ FAIL ]
 
   Medium 1Mb/s, 10 ms, 50% drop                             [ FAIL ]
 
-  Medium 1Mb/s, 10 ms, 50% delay 25% duplicate              [ FAIL ]
+  Medium 1Mb/s, 10 ms, 50% delay 25% duplicate              [ PASS ]
 
   Medium 5Mb/s, 10 ms, 5% delay 5% duplicate 5% drop        [ FAIL ]
 
-  Large 1Mb/s, 10 ms, 10% delay 10% duplicate               [ FAIL ]
+  Large 1Mb/s, 10 ms, 10% delay 10% duplicate               [ PASS ]
 
-  Large 10Mb/s, 10ms, 1% delay 1% duplicate 1% drop         [ FAIL ]
+  Large 10Mb/s, 10ms, 1% delay 1% duplicate 1% drop         [ PASS ]
 
 
 
 Performance tests
+
+  small 5 Mb/s, 10 ms, 0% drop, 0% duplicate 0% delay       [DATAOK]
+
+    0.088 sec elapsed, 1000B sent
+
+    Rate: 89Kb/s                                            [ FAIL ]
 
   huge 5 Mb/s, 10 ms, 0% drop, 0% duplicate 0% delay        [DATERR]
 
