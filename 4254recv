@@ -13,15 +13,15 @@ from window import Window
 
 
 MSG_SIZE = 1500
-TIMEOUT = 30
-SEQUENCE = 0
+TIMEOUT = 300
+SEQUENCE = 0 
 
 class Receiver:
   def __init__ (self, udp_ip, udp_port):
     # Set up the socket
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
     self.sock.bind((udp_ip, udp_port))
-    self.sock.settimeout(TIMEOUT)
+    #self.sock.settimeout(TIMEOUT)
     # Initialize sender window
     # Receiver window have no upper bound nor timeout
     self.window = Window ()
@@ -76,8 +76,8 @@ class Receiver:
         self.log("[recv corrupt packet]")
         raise e
 
-  def sendAck (self, ack_no):
-    msg = json.dumps({"ack": ack_no})
+  def sendAck (self, ack_num):
+    msg = json.dumps({"ack": ack_num - 1})
     self.log("ABOUT TO SEND " + msg)
     return self.sock.sendto (msg.encode(), self.sender_addr) < len(msg)
     

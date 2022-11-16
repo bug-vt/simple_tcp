@@ -1,5 +1,5 @@
 # CS 4254 project 3: TCP Blacksburg
-Last updated: November 15, 2022  
+Last updated: November 16, 2022  
 Team members: Bug Lee, Maria Pereira  
 
 **Table of Contents:**
@@ -88,7 +88,7 @@ The above cases are not exhaustive, but we get the idea.
 - [x] The sender keeps a list of pending segments. We will call the list the sender window.
 - [x] The sender transmits the next segment k when the size of the sender window is smaller than the maximum window size. Then, the sender place the transmitted segment in the sender window.
 - [x] When the sender receives an ACK for segment k, the sender removes all segments that have sequence number less than equal to k from the sender window (cumulative ACKs).
-- [ ] Periodically check and retransmit the expired segment inside the sender window (Not received ACK for that segment after a certain time).
+- [x] Periodically check and retransmit the expired segment inside the sender window (Not received ACK for that segment after a certain time).
 
 ### Receiver
 - [x] Protocol format: ACK number.
@@ -98,7 +98,7 @@ The above cases are not exhaustive, but we get the idea.
 
 
 ## Test Results
-The following shows the current output from `testall` script (Nov 12, 2022):
+The following shows the current output from `testall` script (Nov 16, 2022):
 ```
 Basic (friendly network) tests
 
@@ -126,13 +126,13 @@ Advanced tests
 
   Small 1Mb/s, 10 ms, 100% duplicate                        [ PASS ]
 
-  Medium 1Mb/s, 10 ms, 50% reorder 10% drop                 [ FAIL ]
+  Medium 1Mb/s, 10 ms, 50% reorder 10% drop                 [ PASS ]
 
   Medium 1Mb/s, 10 ms, 50% drop                             [ FAIL ]
 
   Medium 1Mb/s, 10 ms, 50% delay 25% duplicate              [ PASS ]
 
-  Medium 5Mb/s, 10 ms, 5% delay 5% duplicate 5% drop        [ FAIL ]
+  Medium 5Mb/s, 10 ms, 5% delay 5% duplicate 5% drop        [ PASS ]
 
   Large 1Mb/s, 10 ms, 10% delay 10% duplicate               [ PASS ]
 
@@ -144,33 +144,33 @@ Performance tests
 
   small 5 Mb/s, 10 ms, 0% drop, 0% duplicate 0% delay       [DATAOK]
 
-    0.088 sec elapsed, 1000B sent
+    0.084 sec elapsed, 1000B sent
 
-    Rate: 89Kb/s                                            [ FAIL ]
+    Rate: 93Kb/s                                            [ FAIL ]
 
-  huge 5 Mb/s, 10 ms, 0% drop, 0% duplicate 0% delay        [DATERR]
+  huge 5 Mb/s, 10 ms, 0% drop, 0% duplicate 0% delay        [DATAOK]
 
-    Timeout waiting on ./4254send
+    0.451 sec elapsed, 976KB sent
 
-    
+    Rate: 16Mb/s                                            [ OKAY ]
 
-  large 5 Mb/s, 10 ms, 10% drop, 0% duplicate 0% delay      [DATERR]
+  large 5 Mb/s, 10 ms, 10% drop, 0% duplicate 0% delay      [DATAOK]
 
-    Timeout waiting on ./4254send
+    6.247 sec elapsed, 97KB sent
 
-    
+    Rate: 125Kb/s                                           [ FAIL ]
 
-  large 5 Mb/s, 50 ms, 10% drop, 0% duplicate 0% delay      [DATERR]
+  large 5 Mb/s, 50 ms, 10% drop, 0% duplicate 0% delay      [DATAOK]
 
-    Timeout waiting on ./4254send
+    3.461 sec elapsed, 97KB sent
 
-    
+    Rate: 225Kb/s                                           [PERF7]
 
-  large 10 Mb/s, 25 ms, 10% drop, 10% duplicate 20% delay   [DATERR]
+  large 10 Mb/s, 25 ms, 10% drop, 10% duplicate 20% delay   [DATAOK]
 
-    Timeout waiting on ./4254send
+    3.375 sec elapsed, 97KB sent
 
-    
+    Rate: 231Kb/s                                           [PERF2]
 
 ```
 
