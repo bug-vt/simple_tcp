@@ -9,10 +9,12 @@ import select
 import json
 
 from base64 import b64decode
+from window import Window
 
 
 MSG_SIZE = 1500
 TIMEOUT = 30
+SEQUENCE = 0
 
 class Receiver:
   def __init__ (self, udp_ip, udp_port):
@@ -20,6 +22,9 @@ class Receiver:
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
     self.sock.bind((udp_ip, udp_port))
     self.sock.settimeout(TIMEOUT)
+    # Initialize sender window
+    # Receiver window have no upper bound nor timeout
+    self.window = Window ()
 
     # Get port we bound to
     self.log("[bound] " + str (self.sock.getsockname ()[1]))
@@ -29,9 +34,18 @@ class Receiver:
     sys.stderr.write (log_msg)
 
   def recvSegment (self):
-    (data, addr) = self.sock.recvfrom (MSG_SIZE)
+    (segment, addr) = self.sock.recvfrom (MSG_SIZE)
     self.sender_addr = addr
-    return (data, addr)
+
+    decoded = json.loads(segment.decode())
+    seq_no = decoded['sequence'] 
+    # Ignore duplicate segment
+    if (seq_no < SEQUENCE or self.window.get (seq_no) != None):
+      return
+    # note, data is bytes, so we must convert back to string before use
+    # data = b64decode (decoded['data'].encode ())
+    self.window.add (seq_no, decoded) 
+
 
   def sendAck (self, ack_no):
     msg = json.dumps({"ack": ack_no})
@@ -40,6 +54,7 @@ class Receiver:
     
 
 def main (argv):
+  global SEQUENCE
   # Bind to localhost and an ephemeral port
   UDP_IP = "127.0.0.1"
   UDP_PORT = int(sys.argv[1])
@@ -49,37 +64,43 @@ def main (argv):
   # Now listen for packets
   while True:
     try:
-      result = receiver.recvSegment()
+      receiver.recvSegment()
     # If nothing is ready, we hit the timeout
     except socket.timeout:
       receiver.log("[error] timeout")
       sys.exit(-1)
+    
+    # Deliver all the in-order segments up to the next hole (missing
+    # segment) of the sequence inside the receiver window.
+    while True:
+      try:
+        # Remove next sequence from window if exists 
+        delivered = receiver.window.remove (SEQUENCE)
+        # Reached next hole
+        if len (delivered) == 0:
+          break 
 
-    (data, addr) = result # note, data is bytes, so we must convert back to string before use
+        delivered = delivered[0]
 
-    try:
-      decoded = json.loads(data.decode())
+        # If the EOF flag is set, exit
+        if (delivered['eof']):
+          receiver.log("[completed]")
+          sys.exit(0)
 
-      # If the EOF flag is set, exit
-      if (decoded['eof']):
-        receiver.log("[completed]")
-        sys.exit(0)
+        # If there is data, we accept it and print it out
+        if (delivered['data']):
+          data = b64decode(delivered['data'].encode())
+          receiver.log("[recv data] " + str(delivered['sequence']) + " (" + str(len(data)) + ") ACCEPTED (in-order)")
+          sys.stdout.buffer.write(data)
+          SEQUENCE += len(data)
 
-      # If there is data, we accept it and print it out
-      if (decoded['data']):
-        data = b64decode(decoded['data'].encode())
-        # If we receive data, we assume it's in-order
-        # You will need to do much more here
-        receiver.log("[recv data] " + str(decoded['sequence']) + " (" + str(len(data)) + ") ACCEPTED (in-order)")
-        sys.stdout.buffer.write(data)
+        # Send back an ACK to the sender
+        if receiver.sendAck (delivered['sequence'] + len(data)):
+          receiver.log("[error] unable to fully send packet")
 
-      # Send back an ack to the sender
-      if receiver.sendAck (decoded['sequence'] + len(data)):
-        receiver.log("[error] unable to fully send packet")
-
-    except (ValueError, KeyError, TypeError) as e:
-      receiver.log("[recv corrupt packet]")
-      raise e
+      except (ValueError, KeyError, TypeError) as e:
+        receiver.log("[recv corrupt packet]")
+        raise e
 
 
 if __name__ == '__main__':

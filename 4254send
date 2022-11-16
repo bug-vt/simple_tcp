@@ -25,7 +25,7 @@ class Sender:
     self.sock = socket.socket (socket.AF_INET, socket.SOCK_DGRAM) 
     self.sock.settimeout(TIMEOUT)
     # Initialize sender window
-    self.window = Window (max_size=1, timeout=1)
+    self.window = Window (max_size=10, timeout=1)
 
   def log(self, msg):
     log_msg = datetime.datetime.now().strftime("%H:%M:%S.%f") + " 4254send: " + msg + "\n"
@@ -38,7 +38,7 @@ class Sender:
   def sendSegment (self, seq_no):
     data = self.window.get (seq_no)
     # Add headers to data
-    msg = json.dumps({"sequence": SEQUENCE, "data": b64encode(data).decode(), "ack": False, "eof": False})
+    msg = json.dumps({"sequence": SEQUENCE, "data": b64encode(data).decode(), "eof": False})
     if self.sock.sendto (msg.encode (), self.dest) < len (msg):
       self.log("[error] unable to fully send packet")
     else:
@@ -58,7 +58,7 @@ class Sender:
     return self.sock.recvfrom (MSG_SIZE)
 
   def endConnection (self):
-    self.sock.sendto(json.dumps({"eof": True, "data": "", "sequence": SEQUENCE, "ack": False}).encode(), self.dest)
+    self.sock.sendto(json.dumps({"eof": True, "data": "", "sequence": SEQUENCE}).encode(), self.dest)
     self.sock.close ()
 
 

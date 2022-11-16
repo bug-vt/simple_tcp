@@ -3,7 +3,7 @@ from time import time
 UNBOUNDED = -1
 
 class Window:
-  def __init__ (self, timeout, max_size=UNBOUNDED):
+  def __init__ (self, timeout=UNBOUNDED, max_size=UNBOUNDED):
     self.buf = {} # buffer/window 
     self.rto = {} # retransmission timeout
     self.max_size = max_size
@@ -44,10 +44,13 @@ class Window:
   # less than or equal to ack number from the window (cumulative ACKs).
   def remove (self, ack_no):
     delivered_seq_no = []
+    delivered_data = []
     for seq_no in self.buf:
-      if seq_no < ack_no:
+      if seq_no <= ack_no:
         delivered_seq_no.append (seq_no)
 
     for seq_no in delivered_seq_no:
-      self.buf.pop (seq_no)
+      delivered_data.append (self.buf.pop (seq_no))
       self.rto.pop (seq_no)
+
+    return delivered_data 
