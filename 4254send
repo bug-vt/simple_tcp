@@ -59,9 +59,12 @@ class Sender:
     return self.sock.recvfrom (MSG_SIZE)
 
   def endConnection (self):
-    end_msg = json.dumps({"eof": True, "data": "", "sequence": SEQUENCE}).encode()
-    self.sock.sendto(end_msg, self.dest)
-    self.sock.close ()
+    end_msg = json.dumps({"eof": True, "data": "", "sequence": SEQUENCE})
+    # Send eof 
+    if self.sock.sendto (end_msg.encode (), self.dest) < len (end_msg):
+      self.log("[error] unable to fully send packet")
+    else:
+      self.log("[send data] %d (eof)" % SEQUENCE)
   
   def retransmit (self):
     expired_seqs = self.window.expiredSegments ()
@@ -111,7 +114,15 @@ def main (argv):
       except (ValueError, KeyError, TypeError):
         sender.log("[recv corrupt packet]")
 
+  # At this point sender have sent all segments successfully
   sender.endConnection ()
+  while True:
+    try:
+      sender.recvAck ()
+      break
+    except socket.timeout:
+      sender.endConnection ()
+
   sys.exit(0)
 
 

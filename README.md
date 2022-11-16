@@ -128,7 +128,7 @@ Advanced tests
 
   Medium 1Mb/s, 10 ms, 50% reorder 10% drop                 [ PASS ]
 
-  Medium 1Mb/s, 10 ms, 50% drop                             [ FAIL ]
+  Medium 1Mb/s, 10 ms, 50% drop                             [ PASS ]
 
   Medium 1Mb/s, 10 ms, 50% delay 25% duplicate              [ PASS ]
 
@@ -144,33 +144,33 @@ Performance tests
 
   small 5 Mb/s, 10 ms, 0% drop, 0% duplicate 0% delay       [DATAOK]
 
-    0.084 sec elapsed, 1000B sent
+    0.140 sec elapsed, 1000B sent
 
-    Rate: 93Kb/s                                            [ FAIL ]
+    Rate: 55Kb/s                                            [ FAIL ]
 
   huge 5 Mb/s, 10 ms, 0% drop, 0% duplicate 0% delay        [DATAOK]
 
-    0.451 sec elapsed, 976KB sent
+    0.471 sec elapsed, 976KB sent
 
     Rate: 16Mb/s                                            [ OKAY ]
 
   large 5 Mb/s, 10 ms, 10% drop, 0% duplicate 0% delay      [DATAOK]
 
-    6.247 sec elapsed, 97KB sent
+    6.235 sec elapsed, 97KB sent
 
     Rate: 125Kb/s                                           [ FAIL ]
 
   large 5 Mb/s, 50 ms, 10% drop, 0% duplicate 0% delay      [DATAOK]
 
-    3.461 sec elapsed, 97KB sent
+    6.535 sec elapsed, 97KB sent
 
-    Rate: 225Kb/s                                           [PERF7]
+    Rate: 119Kb/s                                           [PERF3]
 
   large 10 Mb/s, 25 ms, 10% drop, 10% duplicate 20% delay   [DATAOK]
 
-    3.375 sec elapsed, 97KB sent
+    6.404 sec elapsed, 97KB sent
 
-    Rate: 231Kb/s                                           [PERF2]
+    Rate: 121Kb/s                                           [ FAIL ]
 
 ```
 

@@ -46,6 +46,7 @@ class Receiver:
 
   def processInOrder (self):
     global SEQUENCE
+    eof = False
     # Deliver all the in-order segments up to the next hole (missing
     # segment) of the sequence inside the receiver window.
     while True:
@@ -58,11 +59,6 @@ class Receiver:
 
         delivered = delivered[0]
 
-        # If the EOF flag is set, exit
-        if (delivered['eof']):
-          self.log("[completed]")
-          sys.exit(0)
-
         # If there is data, we accept it and print it out
         # note, data is bytes, so we must convert back to string before use
         if (delivered['data']):
@@ -72,9 +68,17 @@ class Receiver:
           # Update sequence number to next expected byte position to process
           SEQUENCE += len(data)
 
+        # If the EOF flag is set, exit
+        if (delivered['eof']):
+          self.log("[completed]")
+          eof = True
+          break
+
       except (ValueError, KeyError, TypeError) as e:
         self.log("[recv corrupt packet]")
         raise e
+
+    return eof
 
   def sendAck (self, ack_num):
     msg = json.dumps({"ack": ack_num - 1})
@@ -101,11 +105,18 @@ def main (argv):
       receiver.log("[error] timeout")
       sys.exit(-1)
     
-    receiver.processInOrder ()
+    eof = receiver.processInOrder ()
+    if (eof):
+      break  
     # Send back an cumulative ACK to the sender
     if receiver.sendAck (SEQUENCE):
       receiver.log("[error] unable to fully send packet")
 
+  # At this point receiver have processed all segments in-order
+  for i in range (50):
+    receiver.sendAck (SEQUENCE)
+    
+  sys.exit (0)
 
 if __name__ == '__main__':
   main (sys.argv)
