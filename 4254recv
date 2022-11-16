@@ -39,43 +39,19 @@ class Receiver:
 
     decoded = json.loads(segment.decode())
     seq_no = decoded['sequence'] 
-    # Ignore duplicate segment
+    # Ignore duplicate segment or segment that have been processed already
     if (seq_no < SEQUENCE or self.window.get (seq_no) != None):
       return
-    # note, data is bytes, so we must convert back to string before use
-    # data = b64decode (decoded['data'].encode ())
     self.window.add (seq_no, decoded) 
 
-
-  def sendAck (self, ack_no):
-    msg = json.dumps({"ack": ack_no})
-    self.log("ABOUT TO SEND " + msg)
-    return self.sock.sendto (msg.encode(), self.sender_addr) < len(msg)
-    
-
-def main (argv):
-  global SEQUENCE
-  # Bind to localhost and an ephemeral port
-  UDP_IP = "127.0.0.1"
-  UDP_PORT = int(sys.argv[1])
-
-  receiver = Receiver (UDP_IP, UDP_PORT)
-
-  # Now listen for packets
-  while True:
-    try:
-      receiver.recvSegment()
-    # If nothing is ready, we hit the timeout
-    except socket.timeout:
-      receiver.log("[error] timeout")
-      sys.exit(-1)
-    
+  def processInOrder (self):
+    global SEQUENCE
     # Deliver all the in-order segments up to the next hole (missing
     # segment) of the sequence inside the receiver window.
     while True:
       try:
         # Remove next sequence from window if exists 
-        delivered = receiver.window.remove (SEQUENCE)
+        delivered = self.window.remove (SEQUENCE)
         # Reached next hole
         if len (delivered) == 0:
           break 
@@ -84,23 +60,51 @@ def main (argv):
 
         # If the EOF flag is set, exit
         if (delivered['eof']):
-          receiver.log("[completed]")
+          self.log("[completed]")
           sys.exit(0)
 
         # If there is data, we accept it and print it out
+        # note, data is bytes, so we must convert back to string before use
         if (delivered['data']):
           data = b64decode(delivered['data'].encode())
-          receiver.log("[recv data] " + str(delivered['sequence']) + " (" + str(len(data)) + ") ACCEPTED (in-order)")
+          self.log("[recv data] " + str(delivered['sequence']) + " (" + str(len(data)) + ") ACCEPTED (in-order)")
           sys.stdout.buffer.write(data)
+          # Update sequence number to next expected byte position to process
           SEQUENCE += len(data)
 
-        # Send back an ACK to the sender
-        if receiver.sendAck (delivered['sequence'] + len(data)):
-          receiver.log("[error] unable to fully send packet")
-
       except (ValueError, KeyError, TypeError) as e:
-        receiver.log("[recv corrupt packet]")
+        self.log("[recv corrupt packet]")
         raise e
+
+  def sendAck (self, ack_no):
+    msg = json.dumps({"ack": ack_no})
+    self.log("ABOUT TO SEND " + msg)
+    return self.sock.sendto (msg.encode(), self.sender_addr) < len(msg)
+    
+
+
+def main (argv):
+  # Bind to localhost and an ephemeral port
+  UDP_IP = "127.0.0.1"
+  UDP_PORT = int(sys.argv[1])
+  # Initialize address of the receiver
+  receiver = Receiver (UDP_IP, UDP_PORT)
+
+  # Now listen for segments.
+  # Receiver stores received segment into window,
+  # then read next in-order segment from the window if any.
+  while True:
+    try:
+      receiver.recvSegment()
+    # If nothing is ready, we hit the timeout
+    except socket.timeout:
+      receiver.log("[error] timeout")
+      sys.exit(-1)
+    
+    receiver.processInOrder ()
+    # Send back an cumulative ACK to the sender
+    if receiver.sendAck (SEQUENCE):
+      receiver.log("[error] unable to fully send packet")
 
 
 if __name__ == '__main__':

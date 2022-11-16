@@ -52,7 +52,7 @@ class Sender:
     self.window.add (SEQUENCE, data)
     # Mark the starting byte as the sequence number then send segment
     self.sendSegment (SEQUENCE)
-    # Update sequence number to next starting byte position to read 
+    # Update sequence number to next expected byte position to read 
     SEQUENCE += len (data)
 
   def recvAck (self):
@@ -69,7 +69,7 @@ def main (argv):
   # Find IP and port number from command line argument
   UDP_IP = argv[1].split (":")[0]
   UDP_PORT = int (argv[1].split (":")[1])
-  # Initialize sender with destination ip address and port
+  # Initialize destination (ip address and port) 
   sender = Sender (UDP_IP, UDP_PORT) 
 
   # Now read in data, then send segments until there is no more data
