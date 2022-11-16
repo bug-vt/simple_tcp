@@ -15,7 +15,7 @@ MSG_SIZE = 1500
 DATA_SIZE = 1000
 TIMEOUT = 30
 SEQUENCE = 0
-MAX_WINDOW_SIZE = 1024
+MAX_WINDOW_SIZE = 100
 
 class Sender:
   def __init__ (self, udp_ip, udp_port):
@@ -24,8 +24,8 @@ class Sender:
     # Set up the UDP socket
     self.sock = socket.socket (socket.AF_INET, socket.SOCK_DGRAM) 
     self.sock.settimeout(TIMEOUT)
-    # Initialize sender window
-    self.window = Window (max_size=10, timeout=1)
+    # Initialize sender window (aka sender buffer)
+    self.window = Window (max_size=MAX_WINDOW_SIZE, timeout=1)
 
   def log(self, msg):
     log_msg = datetime.datetime.now().strftime("%H:%M:%S.%f") + " 4254send: " + msg + "\n"
@@ -39,6 +39,7 @@ class Sender:
     data = self.window.get (seq_no)
     # Add headers to data
     msg = json.dumps({"sequence": SEQUENCE, "data": b64encode(data).decode(), "eof": False})
+    # Send sequence number + eof flag + data 
     if self.sock.sendto (msg.encode (), self.dest) < len (msg):
       self.log("[error] unable to fully send packet")
     else:
@@ -47,18 +48,19 @@ class Sender:
   def sendNextSegment (self, data):
     global SEQUENCE
     
-    # Add to window
+    # Store the data inside the window
     self.window.add (SEQUENCE, data)
     # Mark the starting byte as the sequence number then send segment
     self.sendSegment (SEQUENCE)
-    # next segment to read 
+    # Update sequence number to next starting byte position to read 
     SEQUENCE += len (data)
 
   def recvAck (self):
     return self.sock.recvfrom (MSG_SIZE)
 
   def endConnection (self):
-    self.sock.sendto(json.dumps({"eof": True, "data": "", "sequence": SEQUENCE}).encode(), self.dest)
+    end_msg = json.dumps({"eof": True, "data": "", "sequence": SEQUENCE}).encode()
+    self.sock.sendto(end_msg, self.dest)
     self.sock.close ()
 
 
@@ -67,38 +69,41 @@ def main (argv):
   # Find IP and port number from command line argument
   UDP_IP = argv[1].split (":")[0]
   UDP_PORT = int (argv[1].split (":")[1])
-
+  # Initialize sender with destination ip address and port
   sender = Sender (UDP_IP, UDP_PORT) 
 
+  # Now read in data, then send segments until there is no more data
+  # to read from STDIN and window is empty
   data = sender.readData ()
-
-  # Now read in data, send segments
   while len (data) > 0 or not sender.window.isEmpty ():
     
-    if not sender.window.isFull ():
+    # Send next segment in line when window is not full
+    if not sender.window.isFull () and len (data) > 0:
       sender.sendNextSegment (data)
       data = sender.readData ()
+    # Otherwise, wait for next ACK in line to free space inside window
+    else:
+      sender.log("ABOUT TO SLEEP")
+      try:
+        result = sender.recvAck ()
+      # If nothing is ready, we hit the timeout
+      except socket.timeout:
+        sender.log("[error] timeout")
+        sys.exit(-1)
 
-    sender.log("ABOUT TO SLEEP")
-    try:
-      result = sender.recvAck ()
-    # If nothing is ready, we hit the timeout
-    except socket.timeout:
-      sender.log("[error] timeout")
-      sys.exit(-1)
+      (ack, addr) = result
+      # Process received ACK
+      try:
+        decoded = json.loads(ack.decode())
+        sender.log("[recv pkt] " + str(decoded))
+        sender.log("[recv ack] " + str(decoded['ack']))
+        
+        # Remove all segments that have sequence number 
+        # less than or equal to ack number from the window (cumulative ACKs).
+        sender.window.remove (decoded['ack'])
 
-    (ack, addr) = result
-    try:
-      decoded = json.loads(ack.decode())
-      sender.log("[recv pkt] " + str(decoded))
-      sender.log("[recv ack] " + str(decoded['ack']))
-      
-      # Remove all segments that have sequence number 
-      # less than or equal to ack number from the window (cumulative ACKs).
-      sender.window.remove (decoded['ack'])
-
-    except (ValueError, KeyError, TypeError):
-      sender.log("[recv corrupt packet]")
+      except (ValueError, KeyError, TypeError):
+        sender.log("[recv corrupt packet]")
 
   sender.endConnection ()
   sys.exit(0)
