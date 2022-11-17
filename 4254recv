@@ -13,7 +13,6 @@ from window import Window
 
 
 MSG_SIZE = 1500
-TIMEOUT = 300
 SEQUENCE = 0 
 
 class Receiver:
@@ -21,7 +20,6 @@ class Receiver:
     # Set up the socket
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
     self.sock.bind((udp_ip, udp_port))
-    #self.sock.settimeout(TIMEOUT)
     # Initialize sender window
     # Receiver window have no upper bound nor timeout
     self.window = Window ()
@@ -88,9 +86,6 @@ class Receiver:
       msg = str (ack_num - 1)
       self.log("ABOUT TO SEND [ack %s]" % msg)
     return self.sock.sendto (msg.encode(), self.sender_addr) < len(msg)
-  
-  def teardown (self):
-    self.sendAck (SEQUENCE, eof=True)
       
 
 
@@ -105,12 +100,7 @@ def main (argv):
   # Receiver stores received segment into window,
   # then read next in-order segment from the window if any.
   while True:
-    try:
-      receiver.recvSegment()
-    # If nothing is ready, we hit the timeout
-    except socket.timeout:
-      receiver.log("[error] timeout")
-      sys.exit(-1)
+    receiver.recvSegment()
     
     eof = receiver.processInOrder ()
     if (eof):
@@ -120,7 +110,8 @@ def main (argv):
       receiver.log("[error] unable to fully send packet")
 
   # At this point receiver have processed all segments in-order
-  receiver.teardown ()
+  for i in range (10):
+    receiver.sendAck (SEQUENCE, eof=True)
   
   sys.exit (0)
 

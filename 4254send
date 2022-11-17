@@ -15,7 +15,7 @@ MSG_SIZE = 1500
 DATA_SIZE = 1000
 TIMEOUT = 1
 SEQUENCE = 0
-MAX_WINDOW_SIZE = 50
+MAX_WINDOW_SIZE = 100
 
 class Sender:
   def __init__ (self, udp_ip, udp_port):
@@ -112,6 +112,7 @@ def main (argv):
         sender.log("[recv corrupt packet]")
 
   # At this point sender have sent all segments successfully
+  eof_send_count = 0
   sender.sendEOF ()
   while True:
     try:
@@ -120,7 +121,10 @@ def main (argv):
       sender.log("[recv closed port]")
       break
     except socket.timeout:
+      if eof_send_count >= 10:
+        break
       sender.sendEOF ()
+      eof_send_count += 1
       continue
 
     ack_num = int (ack.decode ())

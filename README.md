@@ -144,33 +144,33 @@ Performance tests
 
   small 5 Mb/s, 10 ms, 0% drop, 0% duplicate 0% delay       [DATAOK]
 
-    0.140 sec elapsed, 1000B sent
+    0.143 sec elapsed, 1000B sent
 
-    Rate: 55Kb/s                                            [ FAIL ]
+    Rate: 54Kb/s                                            [ FAIL ]
 
   huge 5 Mb/s, 10 ms, 0% drop, 0% duplicate 0% delay        [DATAOK]
 
-    0.471 sec elapsed, 976KB sent
+    0.508 sec elapsed, 976KB sent
 
-    Rate: 16Mb/s                                            [ OKAY ]
+    Rate: 15Mb/s                                            [ OKAY ]
 
   large 5 Mb/s, 10 ms, 10% drop, 0% duplicate 0% delay      [DATAOK]
 
-    6.235 sec elapsed, 97KB sent
+    2.556 sec elapsed, 97KB sent
 
-    Rate: 125Kb/s                                           [ FAIL ]
+    Rate: 305Kb/s                                           [PERF3]
 
   large 5 Mb/s, 50 ms, 10% drop, 0% duplicate 0% delay      [DATAOK]
 
-    6.535 sec elapsed, 97KB sent
+    1.556 sec elapsed, 97KB sent
 
-    Rate: 119Kb/s                                           [PERF3]
+    Rate: 502Kb/s                                           [PERF19]
 
   large 10 Mb/s, 25 ms, 10% drop, 10% duplicate 20% delay   [DATAOK]
 
-    6.404 sec elapsed, 97KB sent
+    1.474 sec elapsed, 97KB sent
 
-    Rate: 121Kb/s                                           [ FAIL ]
+    Rate: 530Kb/s                                           [PERF9]
 
 ```
 
