@@ -13,9 +13,9 @@ from window import Window
 
 MSG_SIZE = 1500
 DATA_SIZE = 1000
-TIMEOUT = 3
+TIMEOUT = 1
 SEQUENCE = 0
-MAX_WINDOW_SIZE = 100
+MAX_WINDOW_SIZE = 50
 
 class Sender:
   def __init__ (self, udp_ip, udp_port):
@@ -58,13 +58,13 @@ class Sender:
   def recvAck (self):
     return self.sock.recvfrom (MSG_SIZE)
 
-  def endConnection (self):
+  def sendEOF (self):
     end_msg = json.dumps({"eof": True, "data": "", "sequence": SEQUENCE})
     # Send eof 
     if self.sock.sendto (end_msg.encode (), self.dest) < len (end_msg):
       self.log("[error] unable to fully send packet")
     else:
-      self.log("[send data] %d (eof)" % SEQUENCE)
+      self.log("[send eof] %d" % SEQUENCE)
   
   def retransmit (self):
     expired_seqs = self.window.expiredSegments ()
@@ -93,18 +93,15 @@ def main (argv):
     else:
       sender.log("ABOUT TO SLEEP")
       try:
-        result = sender.recvAck ()
+        (ack, addr) = sender.recvAck ()
       # If nothing is ready, we hit the timeout
       except socket.timeout:
         sender.retransmit ()
         continue
 
-      (ack, addr) = result
       # Process received ACK
       try:
-        decoded = json.loads(ack.decode())
-        ack_num = decoded['ack']
-        sender.log("[recv pkt] " + str(decoded))
+        ack_num = int (ack.decode ())
         sender.log("[recv ack] " + str(ack_num))
         
         # Remove all segments that have sequence number 
@@ -115,13 +112,22 @@ def main (argv):
         sender.log("[recv corrupt packet]")
 
   # At this point sender have sent all segments successfully
-  sender.endConnection ()
+  sender.sendEOF ()
   while True:
     try:
-      sender.recvAck ()
+      (ack, addr) = sender.recvAck ()
+    except ConnectionResetError:
+      sender.log("[recv closed port]")
       break
     except socket.timeout:
-      sender.endConnection ()
+      sender.sendEOF ()
+      continue
+
+    ack_num = int (ack.decode ())
+    if ack_num == SEQUENCE:
+      sender.log("[recv eof] " + str(ack_num))
+      break
+    sender.log("[recv ack] " + str(ack_num))
 
   sys.exit(0)
 

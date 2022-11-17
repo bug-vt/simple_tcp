@@ -59,6 +59,12 @@ class Receiver:
 
         delivered = delivered[0]
 
+        # If the EOF flag is set, exit
+        if (delivered['eof']):
+          self.log("[completed]")
+          eof = True
+          break
+
         # If there is data, we accept it and print it out
         # note, data is bytes, so we must convert back to string before use
         if (delivered['data']):
@@ -68,23 +74,24 @@ class Receiver:
           # Update sequence number to next expected byte position to process
           SEQUENCE += len(data)
 
-        # If the EOF flag is set, exit
-        if (delivered['eof']):
-          self.log("[completed]")
-          eof = True
-          break
-
       except (ValueError, KeyError, TypeError) as e:
         self.log("[recv corrupt packet]")
         raise e
 
     return eof
 
-  def sendAck (self, ack_num):
-    msg = json.dumps({"ack": ack_num - 1})
-    self.log("ABOUT TO SEND " + msg)
+  def sendAck (self, ack_num, eof=False):
+    if eof:
+      msg = str (ack_num)
+      self.log("ABOUT TO SEND [eof %s]" % msg)
+    else:
+      msg = str (ack_num - 1)
+      self.log("ABOUT TO SEND [ack %s]" % msg)
     return self.sock.sendto (msg.encode(), self.sender_addr) < len(msg)
-    
+  
+  def teardown (self):
+    self.sendAck (SEQUENCE, eof=True)
+      
 
 
 def main (argv):
@@ -113,9 +120,8 @@ def main (argv):
       receiver.log("[error] unable to fully send packet")
 
   # At this point receiver have processed all segments in-order
-  for i in range (50):
-    receiver.sendAck (SEQUENCE)
-    
+  receiver.teardown ()
+  
   sys.exit (0)
 
 if __name__ == '__main__':
