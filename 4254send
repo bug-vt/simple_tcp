@@ -18,6 +18,9 @@ SEQUENCE = 0
 MAX_WINDOW_SIZE = 100
 
 class Sender:
+  '''
+  Sender Class encapsulates methods for transfering data to receiver.
+  '''
   def __init__ (self, udp_ip, udp_port):
     # Record ip address and port number of the receiver
     self.dest = (udp_ip, udp_port)
@@ -67,16 +70,17 @@ class Sender:
       self.log("[send eof] %d" % SEQUENCE)
   
   def retransmit (self):
+    # retransmit all expired segments inside the window
     expired_seqs = self.window.expiredSegments ()
     for expired_seq in expired_seqs:
       self.sendSegment (expired_seq)
       self.window.resetRTO (expired_seq)
 
 
-def main (argv):
+def main (ip, port):
   # Find IP and port number from command line argument
-  UDP_IP = argv[1].split (":")[0]
-  UDP_PORT = int (argv[1].split (":")[1])
+  UDP_IP = ip
+  UDP_PORT = port
   # Initialize destination (ip address and port) 
   sender = Sender (UDP_IP, UDP_PORT) 
 
@@ -94,7 +98,8 @@ def main (argv):
       sender.log("ABOUT TO SLEEP")
       try:
         (ack, addr) = sender.recvAck ()
-      # If nothing is ready, we hit the timeout
+      # If no ACKs arrives for a while, retransmit any expired segments inside
+      # the window
       except socket.timeout:
         sender.retransmit ()
         continue
@@ -112,6 +117,7 @@ def main (argv):
         sender.log("[recv corrupt packet]")
 
   # At this point sender have sent all segments successfully
+  # Send EOF until receiver ACK that EOF got processed
   eof_send_count = 0
   sender.sendEOF ()
   while True:
@@ -121,8 +127,10 @@ def main (argv):
       sender.log("[recv closed port]")
       break
     except socket.timeout:
+      # If receiver have not responded for a long time, assume it is already closed
       if eof_send_count >= 10:
         break
+      # Otherwise, resend EOF
       sender.sendEOF ()
       eof_send_count += 1
       continue
@@ -137,4 +145,18 @@ def main (argv):
 
 
 if __name__ == '__main__':
-  main (sys.argv)
+  # command line argument syntax checking
+  if len (sys.argv) != 2 or ":" not in sys.argv[1]:
+    sys.stderr.write ("Usage: 4254send <recv_host>:<recv_port>\n")
+    sys.exit (-1)
+
+  argv = sys.argv[1].split (":")
+  try:
+    ip = argv[0]
+    port = int (argv[1])
+  except ValueError:
+    sys.stderr.write ("Usage: 4254send <recv_host>:<recv_port>\n")
+    sys.exit (-1)
+
+  # call main function 
+  main (ip, port)

@@ -16,6 +16,9 @@ MSG_SIZE = 1500
 SEQUENCE = 0 
 
 class Receiver:
+  '''
+  Receiver Class encapsulates methods for receving and processing data in order.
+  '''
   def __init__ (self, udp_ip, udp_port):
     # Set up the socket
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
@@ -40,6 +43,7 @@ class Receiver:
     # Ignore duplicate segment or segment that have been processed already
     if (seq_no < SEQUENCE or self.window.get (seq_no) != None):
       return
+    # Organize the received segment inside the window based on sequence number 
     self.window.add (seq_no, decoded) 
 
   def processInOrder (self):
@@ -89,10 +93,10 @@ class Receiver:
       
 
 
-def main (argv):
+def main (port):
   # Bind to localhost and an ephemeral port
   UDP_IP = "127.0.0.1"
-  UDP_PORT = int(sys.argv[1])
+  UDP_PORT = port 
   # Initialize address of the receiver
   receiver = Receiver (UDP_IP, UDP_PORT)
 
@@ -116,4 +120,15 @@ def main (argv):
   sys.exit (0)
 
 if __name__ == '__main__':
-  main (sys.argv)
+  # command line argument syntax checking
+  if len (sys.argv) != 2:
+    sys.stderr.write ("Usage: 4254recv <recv_port>\n")
+    sys.exit (-1)
+  
+  try:
+    port = int (sys.argv[1])
+  except ValueError:
+    sys.stderr.write ("Usage: 4254recv <recv_port>\n")
+    sys.exit (-1)
+
+  main (port)
