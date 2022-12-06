@@ -1,5 +1,5 @@
 # CS 4254 project 3: TCP Blacksburg
-Last updated: November 16, 2022  
+Last updated: December 6, 2022  
 Team members: Bug Lee, Maria Pereira  
 
 **Table of Contents:**
@@ -7,14 +7,18 @@ Team members: Bug Lee, Maria Pereira
   - [Project Overview](#project-overview)
 - [Part 1: A Reliable Transport Protocol](#part-1-a-reliable-transport-protocol)
   - [1.1 Design Simplification](#11-design-simplification)
-  - [1.2 Roadmap](#12-roadmap)
-  - [1.3 In-order delivery](#13-in-order-delivery)
-  - [1.4 Reliability](#14-reliability)
-  - [Summary](#summary)
+  - [1.2 In-order delivery](#12-in-order-delivery)
+  - [1.3 Reliability](#13-reliability)
+  - [1.4 Summary](#14-summary)
     - [Sender](#sender)
     - [Receiver](#receiver)
-  - [Test Results](#test-results)
 - [Part 2: Congestion Control](#part-2-congestion-control)
+  - [2.1 Motivation](#21-motivation)
+  - [2.2 AIMD](#22-aimd)
+  - [2.3 Slow start](#23-slow-start)
+  - [2.4 Fast retransmit/recovery](#24-fast-retransmitrecovery)
+  - [2.5 Fairness](#25-fairness)
+- [Part 3: Test Results](#part-3-test-results)
 
 
 ## Project Overview
@@ -27,7 +31,7 @@ We will borrow some of the approaches from TCP to make a transport protocol. How
 1. **One-way transport**  
 Unlike TCP, where both client and server can send and receive data (2-way transport), our simple transport protocol only needs to handle data flowing from sender to receiver. That is, the receiver only needs to worry about sending back an ACK to the sender, without any data.
 
-2. **No three ways handshake and connection teardown**  
+2. **No three ways handshake and simplified teardown**  
 According to project spec, "you do NOT have to implement connection open/close, etc., and may assume that the receiver is run first will wait indefinitely for the sender to send the data to the receiver."
 
 3. **Unbounded receiver's buffer size (receiving window size)**   
@@ -37,10 +41,7 @@ However, this still leaves us with the sender's buffer size (sender window size)
 4. **Error detection**  
 The TCP calculates the checksum and includes it inside the header. Since our protocol is built on top of UDP, we will use checksum from UDP and let it handle error detection.
 
-## 1.2 Roadmap
-TBD
-
-## 1.3 In-order delivery
+## 1.2 In-order delivery
 We first consider how we can deliver segments in order. Like TCP, one way to do this is by attaching a sequence number to each data segment. That way, the receiver knows what segment goes where even when segments get delivered out-of-order. 
 
 ![Sender format](img/sender_format.png)
@@ -51,7 +52,7 @@ The figure above shows the protocol format that the sender would use. we only ne
 
 The protocol format for the receiver is even simpler. From the simplifications, we made in 1.1 and since we are building on top of UDP, we don't need all the fancy headers that TCP uses! Woohoo!
 
-## 1.4 Reliability 
+## 1.3 Reliability 
 Next, we consider the meat of part 2 of the project: reliability. Reliability can be achieved by **acknowledgments** and **retransmissions**.
 
 Let's first consider the design choice for **acknowledgments**. Each acknowledgment indicates the successful delivery of a certain segment.  
@@ -82,7 +83,7 @@ In this case, there were no duplicate ACKs, but we see can see that segment 1 wa
 
 The above cases are not exhaustive, but we get the idea.
 
-## Summary
+## 1.4 Summary
 ### Sender
 - [x] Protocol format: sequence number + data.
 - [x] The sender keeps a list of pending segments. We will call the list the sender window.
@@ -97,7 +98,38 @@ The above cases are not exhaustive, but we get the idea.
 - [x] The receiver also keeps track of the next expected segment. When the next expected segment arrives, the receiver print all the in-order segments up to the next hole (missing segment) of the sequence inside the receiver window. 
 
 
-## Test Results
+# Part 2: Congestion Control
+## 2.1 Motivation
+In part 1, we implemented a reliable transport protocol with a fixed window size. We have observed a few drawbacks to fixing the window size:
+1. If the available bandwidth-delay product of the bottleneck link somewhere on the network is less than the window size, then some packets/segments get dropped at the bottleneck link.
+2. If the available bandwidth-delay product of the bottleneck link somewhere on the network is greater than the window size, then the sender is wasting bandwidth by not fully utilizing the available bandwidth. 
+3. Not adapted for multiple senders. One of the senders can leave or a new sender can arrive at any time. Also, each sender might send data at a different rate and the rate may change over time.
+
+To remedy this, we want window size to be adaptive based on the available bandwidth of the bottleneck link and other senders of the network. In other words, we want to minimize drops, minimize delay, and maximize utilization.
+
+## 2.2 AIMD
+In most cases, a packet gets lost when there is congestion in the network. So, we used this information to adjust the window size of the sender.
+
+    if Sender received ACK
+      W = W + 1
+    else timeout
+      W = W / 2
+
+This is known as Additive Increase Multiplicative Decrease (AIMD). AIMD allow senders to take into account different number of senders, bandwidth, and load. Being conservative about the increase, but aggressive about the decrease in the face of congestion helps the network to recover from congestion quickly.
+
+## 2.3 Slow start
+TBD 
+
+## 2.4 Fast retransmit/recovery
+TBD 
+
+## 2.5 Fairness
+For our purpose, we assumed that senders have similar or the same RTTs and loads since all senders and receivers are located inside the same machine and transfer the same file. In such a case, we can expect our CCA will converge to a fair state.
+
+However, each sender may send data at a different rate in practice. For example, consider two senders with different RTTs. The sender with greater RTT will increase the window size slower than the sender with lesser RTT. For another example, one sender may only need to send 1 packet/sec whereas another sender needs to send 100 packets/sec to send a big file inside the network with a bottleneck capacity of 2 packets/sec. With the current CCA, both senders would send with 1 packet/sec. From these examples, we can see that CCA with AIMD cap the window size without considering different RTTs, loads, etc. So, it is difficult to argue that the current CCA is fair.
+
+
+# Part 3: Test Results
 The following shows the current output from `testall` script (Nov 16, 2022):
 ```
 Basic (friendly network) tests
@@ -144,37 +176,32 @@ Performance tests
 
   small 5 Mb/s, 10 ms, 0% drop, 0% duplicate 0% delay       [DATAOK]
 
-    0.143 sec elapsed, 1000B sent
+    0.138 sec elapsed, 1000B sent
 
-    Rate: 54Kb/s                                            [ FAIL ]
+    Rate: 56Kb/s                                            [ FAIL ]
 
   huge 5 Mb/s, 10 ms, 0% drop, 0% duplicate 0% delay        [DATAOK]
 
-    0.508 sec elapsed, 976KB sent
+    0.427 sec elapsed, 976KB sent
 
-    Rate: 15Mb/s                                            [ OKAY ]
+    Rate: 17Mb/s                                            [ OKAY ]
 
   large 5 Mb/s, 10 ms, 10% drop, 0% duplicate 0% delay      [DATAOK]
 
-    2.556 sec elapsed, 97KB sent
+    2.265 sec elapsed, 97KB sent
 
-    Rate: 305Kb/s                                           [PERF3]
+    Rate: 344Kb/s                                           [PERF5]
 
   large 5 Mb/s, 50 ms, 10% drop, 0% duplicate 0% delay      [DATAOK]
 
-    1.556 sec elapsed, 97KB sent
+    3.925 sec elapsed, 97KB sent
 
-    Rate: 502Kb/s                                           [PERF19]
+    Rate: 199Kb/s                                           [PERF6]
 
   large 10 Mb/s, 25 ms, 10% drop, 10% duplicate 20% delay   [DATAOK]
 
-    1.474 sec elapsed, 97KB sent
+    2.423 sec elapsed, 97KB sent
 
-    Rate: 530Kb/s                                           [PERF9]
+    Rate: 322Kb/s                                           [PERF4]
 
 ```
-
-
-
-# Part 2: Congestion Control
-TBD
