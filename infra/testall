@@ -42,7 +42,6 @@ runTest("Large 1Mb/s, 10 ms, 10% delay 10% duplicate", "--delay 10 --duplicate 1
 runTest("Large 10Mb/s, 10ms, 1% delay 1% duplicate 1% drop", "--bandwidth 10 --delay 1 --drop 1 --duplicate 1", "--size large --timeout 60");
 
 print "\nPerformance tests\n";
-runPerfTest(5, 10, 0, 0, 0, "small");
 runPerfTest(5, 10, 0, 0, 0, "huge");
 runPerfTest(5, 10, 10, 0, 0, "large");
 runPerfTest(5, 50, 10, 0, 0, "large");

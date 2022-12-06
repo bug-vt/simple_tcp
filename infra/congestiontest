@@ -70,6 +70,16 @@ def generate_data(size):
 
 
 def create_traffic_rule(ports):
+# flushing all iptables rules
+  subprocess.run(["sudo", "iptables", "--flush"], stdout=subprocess.DEVNULL, check=True)
+  try:
+    # checking if TRAFFIC chain exists
+    subprocess.run(["sudo", "iptables", "--list", "TRAFFIC"], stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL, check=True)
+  except Exception as e:
+    # adding TRAFFIC chain
+    subprocess.run(["sudo", "iptables", "-N", "TRAFFIC"], stdout=subprocess.DEVNULL, check=True)
+  subprocess.run(["sudo", "iptables", "-I", "OUTPUT", "-j", "TRAFFIC"], stdout=subprocess.DEVNULL, check=True)
+  
   for port in ports:
     subprocess.run(["sudo", "iptables", "-A", "TRAFFIC", "-p", "udp", "--dport", f"{port}"],
                               stdout=subprocess.PIPE,
@@ -226,7 +236,7 @@ def main(fdatain_name, fdataout_name, args, numpairs, configs):
   for i, port in enumerate(ports):
     sr_threads.append(threading.Thread(target = send_and_receive, args=(REPEATS, fdatain_name[i], fdataout_name[i], args, port, int(configs[i][0]))))
 
-  t2 = threading.Thread(target = gather_persec_results, args=(ports, sr_threads))
+  t2 = threading.Thread(target = gather_persec_results, args=(ports.copy(), sr_threads.copy()))
 
   t2.start() # start gathering stats first
   time.sleep(0.2)
