@@ -101,8 +101,8 @@ The above cases are not exhaustive, but we get the idea.
 # Part 2: Congestion Control
 ## 2.1 Motivation
 In part 1, we implemented a reliable transport protocol with a fixed window size. We have observed a few drawbacks to fixing the window size:
-1. If the available bandwidth-delay product of the bottleneck link somewhere on the network is less than the window size, then some packets/segments get dropped at the bottleneck link.
-2. If the available bandwidth-delay product of the bottleneck link somewhere on the network is greater than the window size, then the sender is wasting bandwidth by not fully utilizing the available bandwidth. 
+1. If the bandwidth-delay product of the bottleneck link on the network is less than the window size, then some packets/segments get dropped at the bottleneck link.
+2. If the bandwidth-delay product of the bottleneck link on the network is greater than the window size, then the sender is wasting bandwidth by not fully utilizing the available bandwidth. 
 3. Not adapted for multiple senders. One of the senders can leave or a new sender can arrive at any time. Also, each sender might send data at a different rate and the rate may change over time.
 
 To remedy this, we want window size to be adaptive based on the available bandwidth of the bottleneck link and other senders of the network. In other words, we want to minimize drops, minimize delay, and maximize utilization.
@@ -118,15 +118,15 @@ In most cases, a packet gets lost when there is congestion in the network. So, w
 This is known as Additive Increase Multiplicative Decrease (AIMD). AIMD allow senders to take into account different number of senders, bandwidth, and load. Being conservative about the increase, but aggressive about the decrease in the face of congestion helps the network to recover from congestion quickly.
 
 ## 2.3 Slow start
-TBD 
+In the beginning, the sender starts with window size 1 and increases the window as it receives ACKs. However, if the network is mostly free, then additive increase may not utilize bandwidth effectively in the beginning. So instead, the sender starts with the mode where it exponentially increases the window size. This is ironically known as the Slow start. Once the sender detects the first packet loss, then it enters the congestion avoidance mode where AIMD takes place.
 
 ## 2.4 Fast retransmit/recovery
-TBD 
+TBD
 
 ## 2.5 Fairness
 For our purpose, we assumed that senders have similar or the same RTTs and loads since all senders and receivers are located inside the same machine and transfer the same file. In such a case, we can expect our CCA will converge to a fair state.
 
-However, each sender may send data at a different rate in practice. For example, consider two senders with different RTTs. The sender with greater RTT will increase the window size slower than the sender with lesser RTT. For another example, one sender may only need to send 1 packet/sec whereas another sender needs to send 100 packets/sec to send a big file inside the network with a bottleneck capacity of 2 packets/sec. With the current CCA, both senders would send with 1 packet/sec. From these examples, we can see that CCA with AIMD cap the window size without considering different RTTs, loads, etc. So, it is difficult to argue that the current CCA is fair.
+However, each sender may send data at a different rate in practice. For example, consider two senders with different RTTs. The sender with greater RTT will increase the window size slower than the sender with lesser RTT. For another example, one sender may only need to send 1 packet/sec for Pinging whereas another sender needs to send 100 packets/sec for sending a big file. If the network have bottleneck capacity of 2 packets/sec, both senders would send with 1 packet/sec under the current CCA. From these examples, we can see that CCA with AIMD cap the window size without considering different RTTs, loads, etc. So, it is difficult to argue that the current CCA is fair in every senario.
 
 
 # Part 3: Test Results
