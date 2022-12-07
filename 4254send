@@ -13,7 +13,7 @@ from window import Window
 
 MSG_SIZE = 1500
 DATA_SIZE = 1000
-TIMEOUT = 1
+TIMEOUT = 0.01 
 SEQUENCE = 0
 
 class Sender:
@@ -27,7 +27,7 @@ class Sender:
     self.sock = socket.socket (socket.AF_INET, socket.SOCK_DGRAM) 
     self.sock.settimeout(TIMEOUT)
     # Initialize sender window (aka sender buffer)
-    self.window = Window (segment_size=DATA_SIZE, max_size=1, timeout=1)
+    self.window = Window (segment_size=DATA_SIZE, max_size=1, timeout=0.1)
 
   def log(self, msg):
     log_msg = datetime.datetime.now().strftime("%H:%M:%S.%f") + " 4254send: " + msg + "\n"
@@ -72,6 +72,11 @@ class Sender:
     # retransmit all expired segments inside the window
     expired_seqs = self.window.expiredSegments ()
 
+    if len (expired_seqs) >= 1:
+      # Multiplicative decrease window size
+      self.window.shrinkWindow ()
+      self.log("Shrinking Window size to: " + str (self.window.max_size))
+
     for expired_seq in expired_seqs:
       self.sendSegment (expired_seq)
       self.window.resetRTO (expired_seq)
@@ -103,9 +108,6 @@ def main (ip, port):
       # If no ACKs arrives for a while, retransmit any expired segments inside
       # the window
       except socket.timeout:
-        # Multiplicative decrease window size
-        sender.window.shrinkWindow ()
-        sender.log("Shrinking Window size to: " + str (sender.window.max_size))
         sender.retransmit ()
         continue
 
@@ -118,22 +120,22 @@ def main (ip, port):
         # less than or equal to ack number from the window (cumulative ACKs).
         sender.window.remove (ack_num)
         # keep track of duplicate ack
-        if curr_ack != ack_num:
-          curr_ack = ack_num
-          duplicate_ack_count = 1 
-        else:
-          duplicate_ack_count += 1
+        #if curr_ack != ack_num:
+        #  curr_ack = ack_num
+        #  duplicate_ack_count = 1 
+        #else:
+        #  duplicate_ack_count += 1
         # Fast retransmit/recovery
-        if duplicate_ack_count >= 4:
-          sender.window.shrinkWindow ()
-          sender.log("Shrinking Window size to: " + str (sender.window.max_size))
-          sender.sendSegment (ack_num + 1)
-          sender.window.resetRTO (ack_num + 1)
-          duplicate_ack_count = 1 
+        #if duplicate_ack_count >= 4:
+        #  sender.window.shrinkWindow ()
+        #  sender.log("Shrinking Window size to: " + str (sender.window.max_size))
+        #  sender.sendSegment (ack_num + 1)
+        #  sender.window.resetRTO (ack_num + 1)
+        #  duplicate_ack_count = 1 
         # Additive increase window size
-        else:
-          sender.window.growWindow ()
-          sender.log("Growing Window size to: " + str (sender.window.max_size))
+        #else:
+        sender.window.growWindow ()
+        sender.log("Growing Window size to: " + str (sender.window.max_size))
 
       except (ValueError, KeyError, TypeError):
         sender.log("[recv corrupt packet]")
@@ -163,6 +165,7 @@ def main (ip, port):
       break
     sender.log("[recv ack] " + str(ack_num))
 
+  sender.window.writeLog ("window_log.txt")
   sys.exit(0)
 
 

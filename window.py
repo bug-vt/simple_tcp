@@ -1,5 +1,5 @@
+import datetime
 from time import time
-import math
 
 UNBOUNDED = -1
 UNUSED = -1
@@ -12,6 +12,7 @@ class Window:
     self.timeout = timeout
     self.slow_start = True
     self.segment_size = segment_size
+    self.log = "--------------------------\n"
 
   def isFull (self):
     if self.max_size == UNBOUNDED:
@@ -66,9 +67,12 @@ class Window:
     else:
       self.max_size += 1
 
+    self.log += datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + str(self.max_size) + "\n"
+
   def shrinkWindow (self):
-    self.max_size = math.ceil (self.max_size / 2)
+    self.max_size //= 2
     self.slow_start = False
+    self.log += datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + str(self.max_size) + "\n"
 
   def print (self):
     string = ""
@@ -76,3 +80,10 @@ class Window:
       string += str (seq_no) + " "
 
     print (string)
+
+  def writeLog (self, log_file):
+    f = open (log_file, "a")
+    f.write (self.log)
+    f.write ("\n")
+    f.close ()
+

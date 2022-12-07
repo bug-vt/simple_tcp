@@ -24,7 +24,7 @@ if (! (-e $RUN)) {
 
 
 print "\nRunning Congestion Test\n";
-runCongestionTest("Medium 0.1 Mb/s 50 ms latency", "--bandwidth 0.1 --latency 50", 3, "large");
+#runCongestionTest("Medium 0.1 Mb/s 50 ms latency", "--bandwidth 0.1 --latency 50", 3, "large");
 
 runSim("Large 0.5 Mb/s 10 ms latency", "--bandwidth 0.5");
 runCongestionTest("", "", 2, 'huge');
