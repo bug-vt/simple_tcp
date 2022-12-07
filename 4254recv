@@ -131,4 +131,5 @@ if __name__ == '__main__':
     sys.stderr.write ("Usage: 4254recv <recv_port>\n")
     sys.exit (-1)
 
+  # call main function 
   main (port)

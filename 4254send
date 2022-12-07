@@ -15,7 +15,6 @@ MSG_SIZE = 1500
 DATA_SIZE = 1000
 TIMEOUT = 1
 SEQUENCE = 0
-MAX_WINDOW_SIZE = 100
 
 class Sender:
   '''
@@ -28,7 +27,7 @@ class Sender:
     self.sock = socket.socket (socket.AF_INET, socket.SOCK_DGRAM) 
     self.sock.settimeout(TIMEOUT)
     # Initialize sender window (aka sender buffer)
-    self.window = Window (max_size=MAX_WINDOW_SIZE, timeout=1)
+    self.window = Window (segment_size=DATA_SIZE, max_size=1, timeout=1)
 
   def log(self, msg):
     log_msg = datetime.datetime.now().strftime("%H:%M:%S.%f") + " 4254send: " + msg + "\n"
@@ -72,6 +71,7 @@ class Sender:
   def retransmit (self):
     # retransmit all expired segments inside the window
     expired_seqs = self.window.expiredSegments ()
+
     for expired_seq in expired_seqs:
       self.sendSegment (expired_seq)
       self.window.resetRTO (expired_seq)
@@ -101,6 +101,9 @@ def main (ip, port):
       # If no ACKs arrives for a while, retransmit any expired segments inside
       # the window
       except socket.timeout:
+        # Multiplicative decrease window size
+        sender.window.shrinkWindow ()
+        sender.log("Shrinking Window size to: " + str (sender.window.max_size))
         sender.retransmit ()
         continue
 
@@ -112,6 +115,9 @@ def main (ip, port):
         # Remove all segments that have sequence number 
         # less than or equal to ack number from the window (cumulative ACKs).
         sender.window.remove (ack_num)
+        # Additive increase window size
+        sender.window.growWindow ()
+        sender.log("Growing Window size to: " + str (sender.window.max_size))
 
       except (ValueError, KeyError, TypeError):
         sender.log("[recv corrupt packet]")

@@ -1,18 +1,22 @@
 from time import time
+import math
 
 UNBOUNDED = -1
+UNUSED = -1
 
 class Window:
-  def __init__ (self, timeout=UNBOUNDED, max_size=UNBOUNDED):
+  def __init__ (self, segment_size=UNUSED, timeout=UNBOUNDED, max_size=UNBOUNDED):
     self.buf = {} # buffer/window 
     self.rto = {} # retransmission timeout
     self.max_size = max_size
     self.timeout = timeout
+    self.slow_start = True
+    self.segment_size = segment_size
 
   def isFull (self):
     if self.max_size == UNBOUNDED:
       return False
-    return len(self.buf) == self.max_size
+    return len(self.buf) >= self.max_size
 
   def isEmpty (self):
     return len(self.buf) == 0
@@ -33,8 +37,10 @@ class Window:
     curr_time = time ()
     expired_seq = []
 
+    base_seq = min (self.rto, key=self.rto.get)
     for seq_no in self.rto:
-      if curr_time >= self.rto[seq_no]:
+      # find expired sequence under current window size 
+      if curr_time >= self.rto[seq_no] and seq_no < base_seq + self.segment_size * self.max_size:
         expired_seq.append (seq_no)
 
     return expired_seq
@@ -53,6 +59,16 @@ class Window:
       self.rto.pop (seq_no)
 
     return delivered_data 
+
+  def growWindow (self):
+    if self.slow_start:
+      self.max_size *= 2
+    else:
+      self.max_size += 1
+
+  def shrinkWindow (self):
+    self.max_size = math.ceil (self.max_size / 2)
+    self.slow_start = False
 
   def print (self):
     string = ""
