@@ -84,6 +84,8 @@ def main (ip, port):
   # Initialize destination (ip address and port) 
   sender = Sender (UDP_IP, UDP_PORT) 
 
+  curr_ack = 0
+  duplicate_ack_count = 0
   # Now read in data, then send segments until there is no more data
   # to read from STDIN and window is empty
   data = sender.readData ()
@@ -115,9 +117,23 @@ def main (ip, port):
         # Remove all segments that have sequence number 
         # less than or equal to ack number from the window (cumulative ACKs).
         sender.window.remove (ack_num)
+        # keep track of duplicate ack
+        if curr_ack != ack_num:
+          curr_ack = ack_num
+          duplicate_ack_count = 1 
+        else:
+          duplicate_ack_count += 1
+        # Fast retransmit/recovery
+        if duplicate_ack_count >= 4:
+          sender.window.shrinkWindow ()
+          sender.log("Shrinking Window size to: " + str (sender.window.max_size))
+          sender.sendSegment (ack_num + 1)
+          sender.window.resetRTO (ack_num + 1)
+          duplicate_ack_count = 1 
         # Additive increase window size
-        sender.window.growWindow ()
-        sender.log("Growing Window size to: " + str (sender.window.max_size))
+        else:
+          sender.window.growWindow ()
+          sender.log("Growing Window size to: " + str (sender.window.max_size))
 
       except (ValueError, KeyError, TypeError):
         sender.log("[recv corrupt packet]")
