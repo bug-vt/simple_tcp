@@ -15,6 +15,7 @@ MSG_SIZE = 1500
 DATA_SIZE = 1000
 TIMEOUT = 0
 SEQUENCE = 0
+SEQ_SENT = 0
 
 class Sender:
   '''
@@ -52,8 +53,6 @@ class Sender:
     
     # Store the data inside the window
     self.window.add (SEQUENCE, data)
-    # Mark the starting byte as the sequence number then send segment
-    self.sendSegment (SEQUENCE)
     # Update sequence number to next expected byte position to read 
     SEQUENCE += len (data)
 
@@ -85,6 +84,7 @@ class Sender:
 
 
 def main (ip, port):
+  global SEQ_SENT
   # Find IP and port number from command line argument
   UDP_IP = ip
   UDP_PORT = port
@@ -100,17 +100,23 @@ def main (ip, port):
   data = sender.readData ()
   while len (data) > 0 or not sender.window.isEmpty ():
     
-    # Send next segment in line when window is not full
+    # Add the next segment in line to the window if the window is not full 
     if not sender.window.isFull () and len (data) > 0:
       sender.sendNextSegment (data)
       data = sender.readData ()
 
-    curr_time = time ()
-    if curr_time > RTT:
-      RTT = curr_time + 0.05
-      # Additive increase window size
-      sender.window.growWindow ()
-      sender.log("Growing Window size to: " + str (sender.window.max_size))
+    if sender.window.isFull ():
+      for seq_no in range (SEQ_SENT, SEQUENCE, DATA_SIZE):
+        # Send the segment: starting from (seq_no) to (seq_no + DATA_SIZE) bytes
+        sender.sendSegment (seq_no)
+        SEQ_SENT += DATA_SIZE
+
+      curr_time = time ()
+      if curr_time > RTT:
+        RTT = curr_time + 0.05
+        # Additive increase window size
+        sender.window.growWindow ()
+        sender.log("Growing Window size to: " + str (sender.window.max_size))
 
     # Check if next ACK in line have arrived to free space inside window
     ack = None
