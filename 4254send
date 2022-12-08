@@ -3,7 +3,7 @@
 
 import sys
 import socket
-import time
+from time import time
 import datetime
 import select
 import json
@@ -13,7 +13,7 @@ from window import Window
 
 MSG_SIZE = 1500
 DATA_SIZE = 1000
-TIMEOUT = 0.01 
+TIMEOUT = 0
 SEQUENCE = 0
 
 class Sender:
@@ -27,7 +27,7 @@ class Sender:
     self.sock = socket.socket (socket.AF_INET, socket.SOCK_DGRAM) 
     self.sock.settimeout(TIMEOUT)
     # Initialize sender window (aka sender buffer)
-    self.window = Window (segment_size=DATA_SIZE, max_size=1, timeout=0.1)
+    self.window = Window (segment_size=DATA_SIZE, max_size=1, timeout=1)
 
   def log(self, msg):
     log_msg = datetime.datetime.now().strftime("%H:%M:%S.%f") + " 4254send: " + msg + "\n"
@@ -58,7 +58,7 @@ class Sender:
     SEQUENCE += len (data)
 
   def recvAck (self):
-    return self.sock.recvfrom (MSG_SIZE)
+    return self.sock.recv (MSG_SIZE)
 
   def sendEOF (self):
     end_msg = json.dumps({"eof": True, "data": "", "sequence": SEQUENCE})
@@ -77,6 +77,8 @@ class Sender:
       self.window.shrinkWindow ()
       self.log("Shrinking Window size to: " + str (self.window.max_size))
 
+    expired_seqs = self.window.expiredSegments ()
+
     for expired_seq in expired_seqs:
       self.sendSegment (expired_seq)
       self.window.resetRTO (expired_seq)
@@ -91,6 +93,8 @@ def main (ip, port):
 
   curr_ack = 0
   duplicate_ack_count = 0
+  RTT = 0
+  timeout = 0
   # Now read in data, then send segments until there is no more data
   # to read from STDIN and window is empty
   data = sender.readData ()
@@ -100,64 +104,75 @@ def main (ip, port):
     if not sender.window.isFull () and len (data) > 0:
       sender.sendNextSegment (data)
       data = sender.readData ()
-    # Otherwise, wait for next ACK in line to free space inside window
-    else:
-      sender.log("ABOUT TO SLEEP")
-      try:
-        (ack, addr) = sender.recvAck ()
-      # If no ACKs arrives for a while, retransmit any expired segments inside
-      # the window
-      except socket.timeout:
-        sender.retransmit ()
+
+    curr_time = time ()
+    if curr_time > RTT:
+      RTT = curr_time + 0.05
+      # Additive increase window size
+      sender.window.growWindow ()
+      sender.log("Growing Window size to: " + str (sender.window.max_size))
+
+    # Check if next ACK in line have arrived to free space inside window
+    ack = None
+    try:
+      ack = sender.recvAck ()
+    # If no ACKs arrives for a while, retransmit any expired segments inside
+    # the window
+    except socket.error:
+      if not ack:
+        curr_time = time ()
+        if curr_time > timeout:
+          sender.retransmit ()
+          timeout = curr_time + 1
         continue
 
-      # Process received ACK
-      try:
-        ack_num = int (ack.decode ())
-        sender.log("[recv ack] " + str(ack_num))
-        
-        # Remove all segments that have sequence number 
-        # less than or equal to ack number from the window (cumulative ACKs).
-        sender.window.remove (ack_num)
-        # keep track of duplicate ack
-        #if curr_ack != ack_num:
-        #  curr_ack = ack_num
-        #  duplicate_ack_count = 1 
-        #else:
-        #  duplicate_ack_count += 1
-        # Fast retransmit/recovery
-        #if duplicate_ack_count >= 4:
-        #  sender.window.shrinkWindow ()
-        #  sender.log("Shrinking Window size to: " + str (sender.window.max_size))
-        #  sender.sendSegment (ack_num + 1)
-        #  sender.window.resetRTO (ack_num + 1)
-        #  duplicate_ack_count = 1 
-        # Additive increase window size
-        #else:
-        sender.window.growWindow ()
-        sender.log("Growing Window size to: " + str (sender.window.max_size))
+    # Process received ACK
+    try:
+      ack_num = int (ack.decode ())
+      sender.log("[recv ack] " + str(ack_num))
+      
+      # Remove all segments that have sequence number 
+      # less than or equal to ack number from the window (cumulative ACKs).
+      sender.window.remove (ack_num)
 
-      except (ValueError, KeyError, TypeError):
-        sender.log("[recv corrupt packet]")
+    except (ValueError, KeyError, TypeError):
+      sender.log("[recv corrupt packet]")
+    
+    # keep track of duplicate ack
+    if curr_ack != ack_num:
+      curr_ack = ack_num
+      duplicate_ack_count = 1 
+    else:
+      duplicate_ack_count += 1
+    # Fast retransmit/recovery
+    if duplicate_ack_count >= 4:
+      sender.window.shrinkWindow ()
+      sender.log("Shrinking Window size to: " + str (sender.window.max_size))
+      sender.sendSegment (ack_num + 1)
+      sender.window.resetRTO (ack_num + 1)
+      duplicate_ack_count = 1 
+
+
 
   # At this point sender have sent all segments successfully
   # Send EOF until receiver ACK that EOF got processed
   eof_send_count = 0
   sender.sendEOF ()
   while True:
+    ack = None
     try:
-      (ack, addr) = sender.recvAck ()
-    except ConnectionResetError:
-      sender.log("[recv closed port]")
-      break
-    except socket.timeout:
-      # If receiver have not responded for a long time, assume it is already closed
-      if eof_send_count >= 10:
-        break
-      # Otherwise, resend EOF
-      sender.sendEOF ()
-      eof_send_count += 1
-      continue
+      ack = sender.recvAck ()
+    except socket.error:
+      if not ack:
+        curr_time = time ()
+        if curr_time > timeout:
+          # If receiver have not responded for a long time, assume it is already closed
+          if eof_send_count >= 10:
+            break
+          # Otherwise, resend EOF
+          sender.sendEOF ()
+          eof_send_count += 1
+        continue
 
     ack_num = int (ack.decode ())
     if ack_num == SEQUENCE:

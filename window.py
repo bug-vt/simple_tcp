@@ -24,6 +24,12 @@ class Window:
 
   def get (self, seq_no):
     return self.buf.get (seq_no)
+
+  def getSeqs (self):
+    seqs = []
+    for seq_no in self.buf:
+      seqs.append (seq_no)
+    return seqs
   
   # Add segment to the buffer
   def add (self, seq_no, segment):
@@ -71,6 +77,8 @@ class Window:
 
   def shrinkWindow (self):
     self.max_size //= 2
+    if self.max_size == 0:
+      self.max_size = 1
     self.slow_start = False
     self.log += datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + str(self.max_size) + "\n"
 
