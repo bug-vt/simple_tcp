@@ -39,7 +39,7 @@ def windowGraph (file_name):
   plt.clf () 
   for i in range (len (x)):
     plt.plot (x[i], y[i], label = ("Sender %d" % i))
-    plt.title ("0.5 Mb/s 10ms latnecy huge file window size")
+    plt.title ("Window size vs Time")
     plt.xlabel ("Time (second)")
     plt.ylabel ("Window size (segment)")
     plt.legend (loc="upper right")
@@ -86,7 +86,7 @@ def tputGraph (file_name):
   plt.clf () 
   for i in range (len (x)):
     plt.plot (x[i], y[i], label = ("Receiver %d" % i))
-    plt.title ("0.5 Mb/s 10ms latnecy huge file throughput per flow")
+    plt.title ("Throughput per flow vs Time")
     plt.xlabel ("Time (second)")
     plt.ylabel ("Throughput (KB)")
     plt.legend (loc="upper right")
