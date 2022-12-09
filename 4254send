@@ -73,7 +73,7 @@ class Sender:
   
   def retransmit (self, seq_no=None):
     # retransmit given sequence 
-    if seq_no:
+    if seq_no != None:
       self.sendSegment (seq_no)
       self.window.resetRTO (seq_no)
       return
@@ -83,7 +83,7 @@ class Sender:
     global SEQ_SENT
     expired_seq = self.window.expiredSegment ()
 
-    if expired_seq:
+    if expired_seq != None:
       # Multiplicative decrease window size
       self.window.shrinkWindow ()
       self.log("Shrinking Window size to: " + str (self.window.max_size))
@@ -99,7 +99,7 @@ def main (ip, port):
   # Initialize destination (ip address and port) 
   sender = Sender (UDP_IP, UDP_PORT) 
 
-  curr_ack = 0
+  curr_ack = 0 
   duplicate_ack_count = 0
   NEXT_RTT = 0
   timeout = time () + TIMEOUT 
@@ -138,7 +138,7 @@ def main (ip, port):
     # If no ACKs arrives for a while, retransmit any expired segments inside
     # the window
     except socket.error:
-      if not ack:
+      if ack == None:
         curr_time = time ()
         if curr_time > timeout:
           sender.log("---------Timeout----------")
@@ -162,6 +162,8 @@ def main (ip, port):
     if curr_ack != ack_num:
       curr_ack = ack_num
       duplicate_ack_count = 1 
+      if SEQ_SENT < curr_ack + 1:
+        SEQ_SENT = curr_ack + 1;
     else:
       duplicate_ack_count += 1
 
