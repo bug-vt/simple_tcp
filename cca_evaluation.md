@@ -1,4 +1,6 @@
-# CS 4254 project 3: CP3 CCA Evaluation
+# CS 4254 project 3 CP3: CCA Evaluation
+Team members: Bug Lee, Maria Pereira  
+Last updated: December 9, 2022  
 
 ## 1. Motivation
 In CP2, we implemented a reliable transport protocol with a fixed window size. However, we have observed a few drawbacks to fixing the window size:
@@ -49,7 +51,16 @@ The sender 0 to 3 was tested under the original data center simulation (Figures 
 <img src="logger/config4_multipair_output_tput.png" width="300" />
 <p align="center"> Figure 7 and 8. </p>
 
-## 5. CCA performance in other senarios
+## 5. CCA performance in other scenarios
+In the following examples, we have created a situation where 
+- sender/receiver 0 pair exchange a large (100KB) file
+- sender/receiver 1,2, and 3 pairs each exchange a medium (10KB) file
+- sender/receiver 4 pair exchange a small (1KB) file
+  
+where multi-pairs are sharing the same link in each specified situation below.
+
+From these experiments, we found that our CCA showcases proportional fairness. That is, our CCA was good at assigning more window size based on the size of the data needed to transfer, instead of assigning an equal amount of window size to all senders. We can see that the resulting throughput matches the corresponding window size. One interesting result was CDN, where the sender/receiver 0 pair finished transferring more than most of the other pairs despite it was sending the most bytes. This was also the case for the Datacenter, so we concluded that our CCA gives priority to bigger data when there is high bandwidth and low latency is available. 
+
 ### - 90's Internet 
 <img src="logger/config1_output_window_size.png" width="300" />
 <img src="logger/config1_output_tput.png" width="300" />
