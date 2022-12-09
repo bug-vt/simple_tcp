@@ -11,7 +11,7 @@ import json
 from base64 import b64decode
 from window import Window
 
-
+LOG_TPUT = "logger/log_tput"
 MSG_SIZE = 1500
 SEQUENCE = 0 
 
@@ -94,6 +94,8 @@ class Receiver:
 
 
 def main (port):
+  log_tput = "----begin----\n"
+  log_tput += datetime.datetime.now().strftime("%H:%M:%S.%f") + " 0\n"
   # Bind to localhost and an ephemeral port
   UDP_IP = "127.0.0.1"
   UDP_PORT = port 
@@ -107,16 +109,22 @@ def main (port):
     receiver.recvSegment()
     
     eof = receiver.processInOrder ()
+    log_tput += datetime.datetime.now().strftime("%H:%M:%S.%f") + " " + str (SEQUENCE) + "\n"
     if (eof):
       break  
     # Send back an cumulative ACK to the sender
     if receiver.sendAck (SEQUENCE):
       receiver.log("[error] unable to fully send packet")
 
+
   # At this point receiver have processed all segments in-order
   for i in range (10):
     receiver.sendAck (SEQUENCE, eof=True)
   
+  f = open (LOG_TPUT, "a")
+  f.write (log_tput)
+  f.write ("\n")
+  f.close ()
   sys.exit (0)
 
 if __name__ == '__main__':
