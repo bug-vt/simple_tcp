@@ -12,7 +12,8 @@ class Window:
     self.timeout = timeout
     self.slow_start = True
     self.segment_size = segment_size
-    self.log = "--------------------------\n"
+    self.log = "----start----\n"
+    self.log += datetime.datetime.now().strftime("%H:%M:%S.%f") + " 1\n"
 
   def isFull (self):
     if self.max_size == UNBOUNDED:
@@ -33,17 +34,14 @@ class Window:
   def resetRTO (self, seq_no):
     self.rto[seq_no] = time () + self.timeout
 
-  # return corresponding sequence numbers for segments that are expired
-  def expiredSegments (self):
+  # return first expired segment 
+  def expiredSegment (self):
     curr_time = time ()
-    expired_seq = []
-
     for seq_no in sorted (self.rto):
-      # find expired sequence under current window size 
-      expired_seq.append (seq_no)
-      break
+      if curr_time > self.rto[seq_no]:
+        return seq_no
 
-    return expired_seq
+    return None 
 
   # Remove all segments that have sequence number 
   # less than or equal to ack number from the window (cumulative ACKs).

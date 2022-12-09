@@ -11,11 +11,12 @@ import json
 from base64 import b64encode
 from window import Window 
 
+LOG_WINDOW = "logger/log_window"
 MSG_SIZE = 1500
 DATA_SIZE = 1000
-TIMEOUT = 1
-SEQUENCE = 0
-SEQ_SENT = 0
+TIMEOUT = 1   # timeout value for each segment inside window
+SEQUENCE = 0  # keep track of last sequence number inside the buffer (window)
+SEQ_SENT = 0  # keep track of first sequence number inside the buffer (window)
 
 class Sender:
   '''
@@ -71,20 +72,23 @@ class Sender:
       self.log("[send eof] %d" % SEQUENCE)
   
   def retransmit (self, seq_no=None):
+    # retransmit given sequence 
     if seq_no:
       self.sendSegment (seq_no)
       self.window.resetRTO (seq_no)
       return
 
     # retransmit all expired segments inside the window
+    # by rewinding SEQ_SENT to first expired sequence
     global SEQ_SENT
-    expired_seqs = self.window.expiredSegments ()
+    expired_seq = self.window.expiredSegment ()
 
-    if len (expired_seqs) >= 1:
+    if expired_seq:
       # Multiplicative decrease window size
       self.window.shrinkWindow ()
       self.log("Shrinking Window size to: " + str (self.window.max_size))
-      SEQ_SENT = expired_seqs[0]
+      # rewind SEQ_SENT
+      SEQ_SENT = expired_seq
 
 
 def main (ip, port):
@@ -97,8 +101,8 @@ def main (ip, port):
 
   curr_ack = 0
   duplicate_ack_count = 0
-  RTT = 0
-  timeout = time () + TIMEOUT
+  NEXT_RTT = 0
+  timeout = time () + TIMEOUT 
   # Now read in data, then send segments until there is no more data
   # to read from STDIN and window is empty
   data = sender.readData ()
@@ -120,11 +124,12 @@ def main (ip, port):
         SEQ_SENT += DATA_SIZE
 
       curr_time = time ()
-      if curr_time > RTT:
-        RTT = curr_time + 0.05
+      if curr_time > NEXT_RTT:
+        NEXT_RTT = curr_time + 0.04
         # Additive increase window size
         sender.window.growWindow ()
         sender.log("Growing Window size to: " + str (sender.window.max_size))
+
 
     # Check if next ACK in line have arrived to free space inside window
     ack = None
@@ -168,7 +173,6 @@ def main (ip, port):
       duplicate_ack_count = 1 
 
 
-
   # At this point sender have sent all segments successfully
   # Send EOF until receiver ACK that EOF got processed
   eof_send_count = 0
@@ -195,7 +199,7 @@ def main (ip, port):
       break
     sender.log("[recv ack] " + str(ack_num))
 
-  sender.window.writeLog ("window_log.txt")
+  sender.window.writeLog (LOG_WINDOW)
   sys.exit(0)
 
 
