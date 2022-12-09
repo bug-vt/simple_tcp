@@ -38,16 +38,10 @@ class Window:
     curr_time = time ()
     expired_seq = []
 
-    #base_seq = min (self.rto, key=self.rto.get)
-    i = 0
     for seq_no in sorted (self.rto):
-      if i >= self.max_size:
-        break
       # find expired sequence under current window size 
-      #if curr_time >= self.rto[seq_no] and seq_no < base_seq + self.segment_size * self.max_size:
-      if curr_time >= self.rto[seq_no]:
-        expired_seq.append (seq_no)
-      i += 1
+      expired_seq.append (seq_no)
+      break
 
     return expired_seq
 

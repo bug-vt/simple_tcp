@@ -12,7 +12,7 @@ from base64 import b64encode
 from window import Window 
 
 MSG_SIZE = 1500
-DATA_SIZE = 10
+DATA_SIZE = 1000
 TIMEOUT = 1
 SEQUENCE = 0
 SEQ_SENT = 0
@@ -77,18 +77,14 @@ class Sender:
       return
 
     # retransmit all expired segments inside the window
+    global SEQ_SENT
     expired_seqs = self.window.expiredSegments ()
 
     if len (expired_seqs) >= 1:
       # Multiplicative decrease window size
       self.window.shrinkWindow ()
       self.log("Shrinking Window size to: " + str (self.window.max_size))
-
-      expired_seqs = self.window.expiredSegments ()
-
-      for expired_seq in expired_seqs:
-        self.sendSegment (expired_seq)
-        self.window.resetRTO (expired_seq)
+      SEQ_SENT = expired_seqs[0]
 
 
 def main (ip, port):
@@ -102,7 +98,7 @@ def main (ip, port):
   curr_ack = 0
   duplicate_ack_count = 0
   RTT = 0
-  timeout = 0
+  timeout = time () + TIMEOUT
   # Now read in data, then send segments until there is no more data
   # to read from STDIN and window is empty
   data = sender.readData ()
@@ -118,9 +114,9 @@ def main (ip, port):
         sender.log("Shrinking Window size to: " + str (sender.window.max_size))
 
     else:
-      for seq_no in range (SEQ_SENT, SEQUENCE, DATA_SIZE):
+      if SEQ_SENT < curr_ack + sender.window.max_size * DATA_SIZE:
         # Send the segment: starting from (seq_no) to (seq_no + DATA_SIZE) bytes
-        sender.sendSegment (seq_no)
+        sender.sendSegment (SEQ_SENT)
         SEQ_SENT += DATA_SIZE
 
       curr_time = time ()
