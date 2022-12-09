@@ -24,12 +24,6 @@ class Window:
 
   def get (self, seq_no):
     return self.buf.get (seq_no)
-
-  def getSeqs (self):
-    seqs = []
-    for seq_no in self.buf:
-      seqs.append (seq_no)
-    return seqs
   
   # Add segment to the buffer
   def add (self, seq_no, segment):
@@ -44,11 +38,16 @@ class Window:
     curr_time = time ()
     expired_seq = []
 
-    base_seq = min (self.rto, key=self.rto.get)
-    for seq_no in self.rto:
+    #base_seq = min (self.rto, key=self.rto.get)
+    i = 0
+    for seq_no in sorted (self.rto):
+      if i >= self.max_size:
+        break
       # find expired sequence under current window size 
-      if curr_time >= self.rto[seq_no] and seq_no < base_seq + self.segment_size * self.max_size:
+      #if curr_time >= self.rto[seq_no] and seq_no < base_seq + self.segment_size * self.max_size:
+      if curr_time >= self.rto[seq_no]:
         expired_seq.append (seq_no)
+      i += 1
 
     return expired_seq
 

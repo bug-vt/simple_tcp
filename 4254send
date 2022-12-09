@@ -12,8 +12,8 @@ from base64 import b64encode
 from window import Window 
 
 MSG_SIZE = 1500
-DATA_SIZE = 1000
-TIMEOUT = 0
+DATA_SIZE = 10
+TIMEOUT = 1
 SEQUENCE = 0
 SEQ_SENT = 0
 
@@ -26,9 +26,9 @@ class Sender:
     self.dest = (udp_ip, udp_port)
     # Set up the UDP socket
     self.sock = socket.socket (socket.AF_INET, socket.SOCK_DGRAM) 
-    self.sock.settimeout(TIMEOUT)
+    self.sock.settimeout(0)
     # Initialize sender window (aka sender buffer)
-    self.window = Window (segment_size=DATA_SIZE, max_size=1, timeout=1)
+    self.window = Window (segment_size=DATA_SIZE, max_size=1, timeout=TIMEOUT)
 
   def log(self, msg):
     log_msg = datetime.datetime.now().strftime("%H:%M:%S.%f") + " 4254send: " + msg + "\n"
@@ -40,6 +40,9 @@ class Sender:
 
   def sendSegment (self, seq_no):
     data = self.window.get (seq_no)
+    if not data:
+      self.log("-----------[error] Unexpected seq no:" + str (seq_no))
+      return
     # Add headers to data
     msg = json.dumps({"sequence": seq_no, "data": b64encode(data).decode(), "eof": False})
     # Send sequence number + eof flag + data 
@@ -67,7 +70,12 @@ class Sender:
     else:
       self.log("[send eof] %d" % SEQUENCE)
   
-  def retransmit (self):
+  def retransmit (self, seq_no=None):
+    if seq_no:
+      self.sendSegment (seq_no)
+      self.window.resetRTO (seq_no)
+      return
+
     # retransmit all expired segments inside the window
     expired_seqs = self.window.expiredSegments ()
 
@@ -76,11 +84,11 @@ class Sender:
       self.window.shrinkWindow ()
       self.log("Shrinking Window size to: " + str (self.window.max_size))
 
-    expired_seqs = self.window.expiredSegments ()
+      expired_seqs = self.window.expiredSegments ()
 
-    for expired_seq in expired_seqs:
-      self.sendSegment (expired_seq)
-      self.window.resetRTO (expired_seq)
+      for expired_seq in expired_seqs:
+        self.sendSegment (expired_seq)
+        self.window.resetRTO (expired_seq)
 
 
 def main (ip, port):
@@ -101,11 +109,15 @@ def main (ip, port):
   while len (data) > 0 or not sender.window.isEmpty ():
     
     # Add the next segment in line to the window if the window is not full 
-    if not sender.window.isFull () and len (data) > 0:
-      sender.sendNextSegment (data)
-      data = sender.readData ()
+    if not sender.window.isFull ():
+      if len (data) > 0:
+        sender.sendNextSegment (data)
+        data = sender.readData ()
+      else:
+        sender.window.shrinkWindow ()
+        sender.log("Shrinking Window size to: " + str (sender.window.max_size))
 
-    if sender.window.isFull ():
+    else:
       for seq_no in range (SEQ_SENT, SEQUENCE, DATA_SIZE):
         # Send the segment: starting from (seq_no) to (seq_no + DATA_SIZE) bytes
         sender.sendSegment (seq_no)
@@ -128,8 +140,9 @@ def main (ip, port):
       if not ack:
         curr_time = time ()
         if curr_time > timeout:
+          sender.log("---------Timeout----------")
           sender.retransmit ()
-          timeout = curr_time + 1
+          timeout = curr_time + TIMEOUT
         continue
 
     # Process received ACK
@@ -150,12 +163,12 @@ def main (ip, port):
       duplicate_ack_count = 1 
     else:
       duplicate_ack_count += 1
+
     # Fast retransmit/recovery
     if duplicate_ack_count >= 4:
       sender.window.shrinkWindow ()
       sender.log("Shrinking Window size to: " + str (sender.window.max_size))
-      sender.sendSegment (ack_num + 1)
-      sender.window.resetRTO (ack_num + 1)
+      sender.retransmit (ack_num + 1)
       duplicate_ack_count = 1 
 
 
