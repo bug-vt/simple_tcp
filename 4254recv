@@ -121,10 +121,10 @@ def main (port):
   for i in range (10):
     receiver.sendAck (SEQUENCE, eof=True)
   
-  f = open (LOG_TPUT, "a")
-  f.write (log_tput)
-  f.write ("\n")
-  f.close ()
+  #f = open (LOG_TPUT, "a")
+  #f.write (log_tput)
+  #f.write ("\n")
+  #f.close ()
   sys.exit (0)
 
 if __name__ == '__main__':

@@ -201,7 +201,7 @@ def main (ip, port):
       break
     sender.log("[recv ack] " + str(ack_num))
 
-  sender.window.writeLog (LOG_WINDOW)
+  #sender.window.writeLog (LOG_WINDOW)
   sys.exit(0)
 
 
