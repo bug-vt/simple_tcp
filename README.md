@@ -1,9 +1,9 @@
-# CS 4254 project 3: TCP Blacksburg
+# Simple TCP
 Last updated: December 6, 2022  
 Team members: Bug Lee, Maria Pereira  
 
 **Table of Contents:**
-- [CS 4254 project 3: TCP Blacksburg](#cs-4254-project-3-tcp-blacksburg)
+- [Simple TCP](#simple-tcp)
   - [Project Overview](#project-overview)
 - [Part 1: A Reliable Transport Protocol](#part-1-a-reliable-transport-protocol)
   - [1.1 Design Simplification](#11-design-simplification)
@@ -16,13 +16,20 @@ Team members: Bug Lee, Maria Pereira
   - [2.1 Motivation](#21-motivation)
   - [2.2 AIMD](#22-aimd)
   - [2.3 Slow start](#23-slow-start)
-  - [2.4 Fast retransmit/recovery](#24-fast-retransmitrecovery)
-  - [2.5 Fairness](#25-fairness)
+  - [2.4 Evaluation of scenario 4: Data center](#24-evaluation-of-scenario-4-data-center)
+    - [- 50Mb vs 10 Mb buffer](#--50mb-vs-10-mb-buffer)
+    - [- 10Gbps and 1ms vs 100Mbps and 1ms vs 10Gbps and 10ms](#--10gbps-and-1ms-vs-100mbps-and-1ms-vs-10gbps-and-10ms)
+    - [- 0% loss rate vs 10% loss rate](#--0-loss-rate-vs-10-loss-rate)
+    - [- Four sender-receiver paris sharing same link](#--four-sender-receiver-paris-sharing-same-link)
+  - [2.5 CCA performance in other scenarios](#25-cca-performance-in-other-scenarios)
+    - [- 90's Internet](#--90s-internet)
+    - [- User to CDN](#--user-to-cdn)
+    - [- Cross-country](#--cross-country)
 - [Part 3: Test Results](#part-3-test-results)
 
 
 ## Project Overview
-The project is divided into two parts. The first part is to implement a simple transport protocol that provides reliable datagram service. The second part is to implement a TCP Reno-like congestion control algorithm.
+The project was divided into two parts. The first part was to implement a simple transport protocol that provides reliable datagram service. The second part was to implement a TCP Reno-like congestion control algorithm.
 
 # Part 1: A Reliable Transport Protocol
 ## 1.1 Design Simplification
@@ -100,33 +107,78 @@ The above cases are not exhaustive, but we get the idea.
 
 # Part 2: Congestion Control
 ## 2.1 Motivation
-In part 1, we implemented a reliable transport protocol with a fixed window size. We have observed a few drawbacks to fixing the window size:
-1. If the bandwidth-delay product of the bottleneck link on the network is less than the window size, then some packets/segments get dropped at the bottleneck link.
+In CP2, we implemented a reliable transport protocol with a fixed window size. However, we have observed a few drawbacks to fixing the window size:
+1. If the bandwidth-delay product of the bottleneck link on the network is less than the window size, then packets/segments get dropped at the bottleneck link.
 2. If the bandwidth-delay product of the bottleneck link on the network is greater than the window size, then the sender is wasting bandwidth by not fully utilizing the available bandwidth. 
 3. Not adapted for multiple senders. One of the senders can leave or a new sender can arrive at any time. Also, each sender might send data at a different rate and the rate may change over time.
 
-To remedy this, we want window size to be adaptive based on the available bandwidth of the bottleneck link and other senders of the network. In other words, we want to minimize drops, minimize delay, and maximize utilization.
+To remedy this, we have implemented CCA to adjust window size based on the available bandwidth of the bottleneck link and other senders of the network. 
 
 ## 2.2 AIMD
-In most cases, a packet gets lost when there is congestion in the network. So, we used this information to adjust the window size of the sender.
+We assumed that a packet gets lost when there is congestion in the network. We considered two cases for lost packets: (1) received duplicated ACKs, or (2) a timeout occurred. Like TCP, we have used AIMD to be conservative for increasing window size, but aggressive for decreasing window size when congestion is detected.
 
-    if Sender received ACK
-      W = W + 1
-    else timeout
+    W = W + 1
+    if Dup ACKs or timeout
       W = W / 2
 
-This is known as Additive Increase Multiplicative Decrease (AIMD). AIMD allow senders to take into account different number of senders, bandwidth, and load. Being conservative about the increase, but aggressive about the decrease in the face of congestion helps the network to recover from congestion quickly.
-
 ## 2.3 Slow start
-In the beginning, the sender starts with window size 1 and increases the window as it receives ACKs. However, if the network is mostly free, then additive increase may not utilize bandwidth effectively in the beginning. So instead, the sender starts with the mode where it exponentially increases the window size. This is ironically known as the Slow start. Once the sender detects the first packet loss, then it enters the congestion avoidance mode where AIMD takes place.
+Like TCP, we implemented the sender to start with the slow start mode, exponential increase in window size instead of a linear increase. Once the sender detects the first packet loss, then it enters the congestion avoidance mode.
 
-## 2.4 Fast retransmit/recovery
-TBD
+## 2.4 Evaluation of scenario 4: Data center 
+The following parameters were used to simulate the data center: 1ms latency, 10Gbps bandwidth, 0% loss, and 50Mb queue. We have used a large file (100KB) for all tests except the test for multiple sender-receiver pairs which uses a huge file (1MB).
 
-## 2.5 Fairness
-For our purpose, we assumed that senders have similar or the same RTTs and loads since all senders and receivers are located inside the same machine and transfer the same file. In such a case, we can expect our CCA will converge to a fair state.
+### - 50Mb vs 10 Mb buffer 
+Sender 0 was tested with a 10Mb buffer whereas sender 1 was tested with 50Mb (Figures 1 and 2). Since there cannot be an issue with overflowing the buffer with a 100KB file, we expected no difference in performance. As expected, the buffer size had minimal impact on the performance in this case.  
 
-However, each sender may send data at a different rate in practice. For example, consider two senders with different RTTs. The sender with greater RTT will increase the window size slower than the sender with lesser RTT. For another example, one sender may only need to send 1 packet/sec for Pinging whereas another sender needs to send 100 packets/sec for sending a big file. If the network have bottleneck capacity of 2 packets/sec, both senders would send with 1 packet/sec under the current CCA. From these examples, we can see that CCA with AIMD cap the window size without considering different RTTs, loads, etc. So, it is difficult to argue that the current CCA is fair in every senario.
+<img src="logger/config4_buffer_output_window_size.png" width="300" />
+<img src="logger/config4_buffer_output_tput.png" width="300" />
+<p align="center"> Figure 1 and 2. </p>
+
+### - 10Gbps and 1ms vs 100Mbps and 1ms vs 10Gbps and 10ms 
+The sender 0 was tested under the original data center simulation. On the other hand, sender 1 was tested with lower bandwidth whereas sender 2 was tested with a longer delay (Figures 3 and 4). We have observed that changing bandwidth does not affect performance as long as we have a bandwidth greater than 100 KB. On the other hand, we found that higher latency causes lower throughput no matter how large the bandwidth is. One aspect that is lacking in our implementation is the additive increase based on RTT. In general, the sender with greater RTT will increase the size of the window slower than the sender with lesser RTT.
+
+<img src="logger/config4_bandwidth_delay_output_window_size.png" width="300" />
+<img src="logger/config4_bandwidth_delay_output_tput.png" width="300" />
+<p align="center"> Figure 3 and 4. </p>
+
+### - 0% loss rate vs 10% loss rate
+The sender 0 was tested under the original data center simulation. On the other hand, sender 1 was tested with a higher drop rate (Figures 5 and 6). Since packet drop usually happens when there is congestion, we can see that CCA has performed as expected. As shown below, our CCA maintains the window size to not to overwhelm the network.
+
+<img src="logger/config4_drop_output_window_size.png" width="300" />
+<img src="logger/config4_drop_output_tput.png" width="300" />
+<p align="center"> Figure 5 and 6. </p>
+
+### - Four sender-receiver paris sharing same link 
+The sender 0 to 3 was tested under the original data center simulation (Figures 7 and 8) using the same file size. In the figure below, we can see that receiver 2 (green) and receiver 3 (red) start slow, but CCA assigns more window sizes to corresponding senders. As a result, we can see that throughput of receiver 2 and receiver 3 increase rapidly around 0.2 seconds whereas the throughput of receiver 1 (blue) is maintained. Once receivers 2 and 3 have more throughput than the receiver 0, the roles are reversed.
+
+<img src="logger/config4_multipair_output_window_size.png" width="300" />
+<img src="logger/config4_multipair_output_tput.png" width="300" />
+<p align="center"> Figure 7 and 8. </p>
+
+## 2.5 CCA performance in other scenarios
+In the following examples, we have created a situation where 
+- sender/receiver 0 pair exchange a large (100KB) file
+- sender/receiver 1,2, and 3 pairs each exchange a medium (10KB) file
+- sender/receiver 4 pair exchange a small (1KB) file
+
+where multi-pairs are sharing the same link in each specified situation below.
+
+From these experiments, we found that our CCA showcases proportional fairness. That is, our CCA was good at assigning more window size based on the size of the data needed to transfer, instead of assigning an equal amount of window size to all senders. We can see that the resulting throughput matches the corresponding window size. One interesting result was CDN, where the sender/receiver 0 pair finished transferring more than most of the other pairs despite it was sending the most bytes. This was also the case for the Datacenter, so we concluded that our CCA gives priority to bigger data when there is high bandwidth and low latency is available. 
+
+### - 90's Internet 
+<img src="logger/config1_output_window_size.png" width="300" />
+<img src="logger/config1_output_tput.png" width="300" />
+<p align="center"> Figure 9 and 10. </p>
+
+### - User to CDN 
+<img src="logger/config2_output_window_size.png" width="300" />
+<img src="logger/config2_output_tput.png" width="300" />
+<p align="center"> Figure 11 and 12. </p>
+
+### - Cross-country
+<img src="logger/config3_output_window_size.png" width="300" />
+<img src="logger/config3_output_tput.png" width="300" />
+<p align="center"> Figure 13 and 14. </p>
 
 
 # Part 3: Test Results
